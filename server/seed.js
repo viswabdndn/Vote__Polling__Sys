@@ -18,15 +18,16 @@ const seed = async () => {
   await Poll.deleteMany({});
   await User.deleteMany({});
 
-  // Create test users with 7-digit Participant IDs and distinct roles
+  // 1. Creator / Admin (John Smith)
   const userA = await User.create({
-    name: 'Alice Johnson',
-    voterId: '24104110',
-    email: '24104110@nec.edu.in',
-    role: 'creator', // Poll Creator / Admin
+    name: 'John Smith',
+    voterId: 'johnsmith',
+    email: 'john@example.com',
+    role: 'creator', // Poll Creator & Admin
     password: 'password123',
   });
 
+  // 2. Participant / Student (Bob Smith)
   const userB = await User.create({
     name: 'Bob Smith',
     voterId: '24104111',
@@ -35,7 +36,7 @@ const seed = async () => {
     password: 'password123',
   });
 
-  console.log('✅ Users created');
+  console.log('✅ Users created: John Smith (Creator) & Bob Smith (Participant)');
 
   const now = new Date();
   const inOneDay = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -43,7 +44,7 @@ const seed = async () => {
   const inSevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const expired = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour ago
 
-  // Poll 1: Programming language (active)
+  // Poll 1: Programming language (active - created by John Smith)
   const poll1 = await Poll.create({
     title: 'Which programming language do you prefer?',
     description: 'Vote for your favorite programming language for web development.',
@@ -60,11 +61,11 @@ const seed = async () => {
     { pollId: poll1._id, text: 'C++', voteCount: 0 },
   ]);
 
-  // Poll 2: Frontend framework (active)
+  // Poll 2: Frontend framework (active - created by John Smith)
   const poll2 = await Poll.create({
     title: 'Best frontend framework in 2024?',
     description: 'Choose the framework you enjoy working with most.',
-    createdBy: userB._id,
+    createdBy: userA._id,
     startTime: now,
     expiryTime: inSevenDays,
     status: 'active',
@@ -77,7 +78,7 @@ const seed = async () => {
     { pollId: poll2._id, text: 'Svelte', voteCount: 0 },
   ]);
 
-  // Poll 3: Database preference (expires in 1 day)
+  // Poll 3: Database preference (active - created by John Smith)
   const poll3 = await Poll.create({
     title: 'Which database do you prefer for new projects?',
     description: 'Select the database technology you prefer.',
@@ -94,11 +95,11 @@ const seed = async () => {
     { pollId: poll3._id, text: 'Redis', voteCount: 0 },
   ]);
 
-  // Poll 4: Archived poll (already expired)
+  // Poll 4: Archived poll (closed - created by John Smith)
   const poll4 = await Poll.create({
     title: 'Best code editor for development?',
     description: 'Which editor do you use daily?',
-    createdBy: userB._id,
+    createdBy: userA._id,
     startTime: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
     expiryTime: expired,
     status: 'closed',
@@ -111,16 +112,29 @@ const seed = async () => {
     { pollId: poll4._id, text: 'Sublime Text', voteCount: 10 },
   ]);
 
+  // Sample vote for Bob in archived poll
+  await Vote.create({
+    userId: userB._id,
+    pollId: poll4._id,
+    optionId: editorOptions[0]._id,
+  });
+
   console.log('✅ Polls created');
 
   console.log('\n🎉 Seed complete!');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('Test Accounts (Login with 7-digit ID or Email):');
-  console.log('  ID: 24104110  | Email: alice@example.com | Password: password123');
-  console.log('  ID: 24104111  | Email: bob@example.com   | Password: password123');
+  console.log('1. 👑 CREATOR (Admin / Creates Polls):');
+  console.log('   Name: John Smith');
+  console.log('   Email/ID: john@example.com (or "johnsmith")');
+  console.log('   Password: password123');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('Active Polls: 3');
-  console.log('Archived Polls: 1 (Best code editor)');
+  console.log('2. 🎓 PARTICIPANT (Voter / Answers Polls via Link):');
+  console.log('   Name: Bob Smith');
+  console.log('   ID: 24104111 (or "24104111@nec.edu.in")');
+  console.log('   Password: password123');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('Active Polls: 3 (All created by John Smith)');
+  console.log('Archived Polls: 1');
 
   process.exit(0);
 };

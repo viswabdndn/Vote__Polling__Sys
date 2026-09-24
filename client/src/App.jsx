@@ -58,7 +58,7 @@ const App = () => {
           <Route
             path="/create-poll"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['creator']}>
                 <AuthLayout><CreatePoll /></AuthLayout>
               </ProtectedRoute>
             }
@@ -82,7 +82,7 @@ const App = () => {
           <Route
             path="/my-polls"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['creator']}>
                 <AuthLayout><MyPolls /></AuthLayout>
               </ProtectedRoute>
             }

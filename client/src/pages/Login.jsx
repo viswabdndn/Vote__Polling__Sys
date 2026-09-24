@@ -122,10 +122,24 @@ const Login = () => {
         </form>
 
         {/* Demo credentials hint */}
-        <div style={{ marginTop: 20, padding: '12px 16px', background: 'var(--info-bg)', borderRadius: 'var(--border-radius-sm)', border: '1px solid #bfdbfe' }}>
-          <p style={{ fontSize: '0.8rem', color: 'var(--info)', fontWeight: 700, marginBottom: 4 }}>💡 Test Participant Accounts:</p>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>ID: <strong>24104110</strong> / Password: <strong>password123</strong></p>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>ID: <strong>24104111</strong> / Password: <strong>password123</strong></p>
+        <div style={{ marginTop: 20, padding: '14px 16px', background: 'var(--info-bg)', borderRadius: 'var(--border-radius-sm)', border: '1px solid #bfdbfe' }}>
+          <p style={{ fontSize: '0.8rem', color: 'var(--info)', fontWeight: 700, marginBottom: 8 }}>💡 Demo Accounts (Click to auto-fill):</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => setForm({ identifier: 'john@example.com', password: 'password123' })}
+              style={{ textAlign: 'left', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: '0.78rem', color: 'var(--text-primary)', cursor: 'pointer' }}
+            >
+              👑 <strong>Creator (John Smith):</strong> <code>john@example.com</code> / <code>password123</code>
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm({ identifier: '24104111', password: 'password123' })}
+              style={{ textAlign: 'left', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: '0.78rem', color: 'var(--text-primary)', cursor: 'pointer' }}
+            >
+              🎓 <strong>Participant (Bob Smith):</strong> ID: <code>24104111</code> / <code>password123</code>
+            </button>
+          </div>
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
