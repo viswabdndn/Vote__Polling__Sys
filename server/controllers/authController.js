@@ -13,7 +13,7 @@ const generateToken = (id) => {
 // @access  Public
 const register = async (req, res, next) => {
   try {
-    let { name, email, voterId, password, confirmPassword } = req.body;
+    let { name, email, voterId, password, confirmPassword, role } = req.body;
 
     if (!name || !password || !confirmPassword) {
       res.status(400);
@@ -33,6 +33,15 @@ const register = async (req, res, next) => {
     if (password.length < 6) {
       res.status(400);
       throw new Error('Password must be at least 6 characters.');
+    }
+
+    // Security check: Never allow registering as Admin from public endpoint
+    let assignedRole = 'participant';
+    if (role === 'admin') {
+      res.status(403);
+      throw new Error('Admin accounts cannot be registered publicly.');
+    } else if (role === 'creator') {
+      assignedRole = 'creator';
     }
 
     // If no email given, construct standard email from voterId
@@ -63,6 +72,14 @@ const register = async (req, res, next) => {
       email: email.toLowerCase().trim(),
       voterId: voterId || undefined,
       password,
+      role: assignedRole,
+      isActive: true,
+      creatorPermissions: {
+        canCreatePoll: true,
+        canEditPoll: true,
+        canPublishPoll: true,
+        canDeletePoll: true,
+      },
     });
 
     const token = generateToken(user._id);
@@ -77,6 +94,8 @@ const register = async (req, res, next) => {
         email: user.email,
         voterId: user.voterId,
         role: user.role,
+        isActive: user.isActive,
+        creatorPermissions: user.creatorPermissions,
         createdAt: user.createdAt,
       },
     });
@@ -115,6 +134,12 @@ const login = async (req, res, next) => {
       throw new Error('Invalid Participant ID, Email, or Password.');
     }
 
+    // Check if account is deactivated
+    if (user.isActive === false) {
+      res.status(403);
+      throw new Error('Your account has been deactivated by an administrator. Please contact support.');
+    }
+
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       res.status(401);
@@ -133,6 +158,8 @@ const login = async (req, res, next) => {
         email: user.email,
         voterId: user.voterId,
         role: user.role,
+        isActive: user.isActive,
+        creatorPermissions: user.creatorPermissions,
         createdAt: user.createdAt,
       },
     });
@@ -147,6 +174,16 @@ const login = async (req, res, next) => {
 const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found.');
+    }
+
+    if (user.isActive === false) {
+      res.status(403);
+      throw new Error('Your account has been deactivated by an administrator.');
+    }
+
     res.json({
       success: true,
       user: {
@@ -155,6 +192,8 @@ const getMe = async (req, res, next) => {
         email: user.email,
         voterId: user.voterId,
         role: user.role,
+        isActive: user.isActive,
+        creatorPermissions: user.creatorPermissions,
         createdAt: user.createdAt,
       },
     });

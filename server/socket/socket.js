@@ -24,8 +24,13 @@ const initSocket = (server) => {
       console.log(`👋 Socket ${socket.id} left poll_${pollId}`);
     });
 
-    socket.on('disconnect', () => {
-      console.log(`❌ Socket disconnected: ${socket.id}`);
+    socket.on('disconnect', (reason) => {
+      // Normal disconnection when user closes tab, refreshes, or navigates away
+      console.log(`ℹ️ Socket disconnected (${reason}): ${socket.id}`);
+    });
+
+    socket.on('error', (err) => {
+      console.error(`⚠️ Socket error (${socket.id}):`, err?.message || err);
     });
   });
 

@@ -25,7 +25,12 @@ const castVote = async (req, res, next) => {
       throw new Error('Poll not found.');
     }
 
-    // 2. Check if poll is expired or closed
+    // 2. Check if poll is approved and active
+    if (poll.approvalStatus !== 'approved') {
+      res.status(403);
+      throw new Error('This poll is awaiting administrator approval and is not open for voting.');
+    }
+
     const now = new Date();
     if (poll.status === 'closed' || poll.expiryTime <= now) {
       res.status(403);
@@ -82,6 +87,8 @@ const castVote = async (req, res, next) => {
 
 // @desc    Get results for a poll
 // @route   GET /api/polls/:pollId/results
+// @desc    Get results for a poll
+// @route   GET /api/polls/:pollId/results
 // @access  Private
 const getResults = async (req, res, next) => {
   try {
@@ -95,6 +102,31 @@ const getResults = async (req, res, next) => {
 
     const resultsData = await buildResults(pollId);
 
+    // Check if the current user is the owner creator or admin
+    const isOwnerOrAdmin =
+      req.user &&
+      (req.user.role === 'admin' ||
+        poll.createdBy._id.toString() === req.user._id.toString());
+
+    let participantVotes = [];
+    if (isOwnerOrAdmin) {
+      const votes = await Vote.find({ pollId })
+        .populate('userId', 'name voterId email')
+        .populate('optionId', 'text')
+        .sort({ createdAt: -1 });
+
+      participantVotes = votes.map((v, index) => ({
+        slNo: index + 1,
+        _id: v._id,
+        participantId: v.userId?.voterId || v.userId?.email || 'N/A',
+        name: v.userId?.name || 'Anonymous',
+        email: v.userId?.email || 'N/A',
+        optionText: v.optionId?.text || 'Unknown',
+        optionId: v.optionId?._id,
+        votedAt: v.createdAt,
+      }));
+    }
+
     res.json({
       success: true,
       poll: {
@@ -107,6 +139,57 @@ const getResults = async (req, res, next) => {
         effectiveStatus: poll.effectiveStatus,
       },
       ...resultsData,
+      isCreator: isOwnerOrAdmin,
+      participantVotes,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get detailed participant votes for a poll (Creator only)
+// @route   GET /api/polls/:pollId/participants
+// @access  Private (Creator only)
+const getPollParticipants = async (req, res, next) => {
+  try {
+    const { pollId } = req.params;
+    const poll = await Poll.findById(pollId).populate('createdBy', 'name');
+    if (!poll) {
+      res.status(404);
+      throw new Error('Poll not found.');
+    }
+
+    const isAuthorized =
+      req.user &&
+      (req.user.role === 'admin' ||
+        poll.createdBy._id.toString() === req.user._id.toString());
+
+    if (!isAuthorized) {
+      res.status(403);
+      throw new Error('Access denied. Only the poll creator or an administrator can view participant details.');
+    }
+
+    const votes = await Vote.find({ pollId })
+      .populate('userId', 'name voterId email')
+      .populate('optionId', 'text')
+      .sort({ createdAt: -1 });
+
+    const participants = votes.map((v, index) => ({
+      slNo: index + 1,
+      _id: v._id,
+      participantId: v.userId?.voterId || v.userId?.email || 'N/A',
+      name: v.userId?.name || 'Anonymous',
+      email: v.userId?.email || 'N/A',
+      optionText: v.optionId?.text || 'Unknown',
+      optionId: v.optionId?._id,
+      votedAt: v.createdAt,
+    }));
+
+    res.json({
+      success: true,
+      pollTitle: poll.title,
+      totalVotes: participants.length,
+      participants,
     });
   } catch (error) {
     next(error);
@@ -163,4 +246,4 @@ async function buildResults(pollId) {
   };
 }
 
-module.exports = { castVote, getResults, getVoteStatus };
+module.exports = { castVote, getResults, getVoteStatus, getPollParticipants };

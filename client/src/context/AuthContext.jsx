@@ -50,6 +50,17 @@ export const AuthProvider = ({ children }) => {
     return data;
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const { data } = await authAPI.getMe();
+      setUser(data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      return data.user;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -57,8 +68,34 @@ export const AuthProvider = ({ children }) => {
     toast.success('Logged out successfully.');
   }, []);
 
+  const isAdmin = user?.role === 'admin';
+  const isCreator = user?.role === 'creator';
+  const isParticipant = user?.role === 'participant';
+
+  const hasPermission = useCallback((permKey) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (user.role === 'creator') {
+      return user.creatorPermissions?.[permKey] !== false;
+    }
+    return false;
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, register, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        register,
+        login,
+        logout,
+        refreshUser,
+        isAdmin,
+        isCreator,
+        isParticipant,
+        hasPermission,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

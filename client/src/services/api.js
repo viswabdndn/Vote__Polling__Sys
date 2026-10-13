@@ -54,13 +54,35 @@ export const pollAPI = {
   getArchive: () => api.get('/polls/archive'),
   getMy: () => api.get('/polls/my'),
   getById: (id) => api.get(`/polls/${id}`),
+  update: (id, data) => api.put(`/polls/${id}`, data),
   close: (id) => api.put(`/polls/${id}/close`),
+  toggleStatus: (id) => api.put(`/polls/${id}/status`),
+  delete: (id) => api.delete(`/polls/${id}`),
+};
+
+// ---- Admin API ----
+export const adminAPI = {
+  getStats: () => api.get('/admin/stats'),
+  getCreators: () => api.get('/admin/creators'),
+  updateCreatorStatus: (id, isActive) => api.put(`/admin/creators/${id}/status`, { isActive }),
+  updateCreatorPermissions: (id, permissions) => api.put(`/admin/creators/${id}/permissions`, permissions),
+  deleteCreator: (id) => api.delete(`/admin/creators/${id}`),
+  getUsers: (params) => api.get('/admin/users', { params }),
+  updateUserStatus: (id, isActive) => api.put(`/admin/users/${id}/status`, { isActive }),
+  updateUserRole: (id, role) => api.put(`/admin/users/${id}/role`, { role }),
+  deleteUser: (id) => api.delete(`/admin/users/${id}`),
+  getPolls: () => api.get('/admin/polls'),
+  getPendingPolls: () => api.get('/admin/polls/pending'),
+  approvePoll: (id, data) => api.put(`/admin/polls/${id}/approve`, data || {}),
+  rejectPoll: (id, reason) => api.put(`/admin/polls/${id}/reject`, { reason }),
+  deletePoll: (id) => api.delete(`/polls/${id}`), // reuse poll delete which allows admin
 };
 
 // ---- Votes ----
 export const voteAPI = {
   cast: (pollId, optionId) => api.post(`/polls/${pollId}/vote`, { optionId }),
   getResults: (pollId) => api.get(`/polls/${pollId}/results`),
+  getParticipants: (pollId) => api.get(`/polls/${pollId}/participants`),
   getVoteStatus: (pollId) => api.get(`/polls/${pollId}/vote-status`),
 };
 

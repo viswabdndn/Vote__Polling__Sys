@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 const AvailablePolls = () => {
   const { user } = useAuth();
-  const isCreator = user?.role === 'creator';
+  const canCreate = (user?.role === 'admin' || user?.role === 'creator') && user?.creatorPermissions?.canCreatePoll !== false;
   const [polls, setPolls] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState('');
@@ -51,7 +51,7 @@ const AvailablePolls = () => {
             {polls.length} active poll{polls.length !== 1 ? 's' : ''} open for voting
           </p>
         </div>
-        {isCreator && (
+        {canCreate && (
           <button className="btn btn-primary" onClick={() => navigate('/create-poll')}>
             + Create Poll
           </button>

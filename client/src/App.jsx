@@ -17,6 +17,7 @@ import MyPolls from './pages/MyPolls';
 import PollHistory from './pages/PollHistory';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import AdminDashboard from './pages/AdminDashboard';
 
 // Layout wrapper for authenticated pages
 const AuthLayout = ({ children }) => (
@@ -40,6 +41,14 @@ const App = () => {
 
           {/* Protected routes */}
           <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AuthLayout><AdminDashboard /></AuthLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
@@ -58,7 +67,7 @@ const App = () => {
           <Route
             path="/create-poll"
             element={
-              <ProtectedRoute allowedRoles={['creator']}>
+              <ProtectedRoute allowedRoles={['creator', 'admin']}>
                 <AuthLayout><CreatePoll /></AuthLayout>
               </ProtectedRoute>
             }
@@ -82,7 +91,7 @@ const App = () => {
           <Route
             path="/my-polls"
             element={
-              <ProtectedRoute allowedRoles={['creator']}>
+              <ProtectedRoute allowedRoles={['creator', 'admin']}>
                 <AuthLayout><MyPolls /></AuthLayout>
               </ProtectedRoute>
             }

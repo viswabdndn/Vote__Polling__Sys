@@ -34,14 +34,17 @@ const Dashboard = () => {
   const [recentPolls, setRecentPolls] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const isAdmin = user?.role === 'admin';
   const isCreator = user?.role === 'creator';
+  const perms = user?.creatorPermissions || {};
+  const hasRevoked = isCreator && (perms.canCreatePoll === false || perms.canEditPoll === false || perms.canPublishPoll === false || perms.canDeletePoll === false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [activeRes, myRes, archiveRes] = await Promise.all([
           pollAPI.getActive(),
-          isCreator ? pollAPI.getMy() : Promise.resolve({ data: { polls: [] } }),
+          (isCreator || isAdmin) ? pollAPI.getMy() : Promise.resolve({ data: { polls: [] } }),
           pollAPI.getArchive(),
         ]);
         setStats({
@@ -58,7 +61,7 @@ const Dashboard = () => {
       }
     };
     fetchData();
-  }, [isCreator]);
+  }, [isCreator, isAdmin]);
 
   if (loading) {
     return (
@@ -82,19 +85,56 @@ const Dashboard = () => {
         <div>
           <h1 className="page-title">{getGreeting()}, {user?.name?.split(' ')[0]}! 👋</h1>
           <p className="page-subtitle">
-            {isCreator ? "Manage and create live polls for participants." : "Vote on questions and view live results in real-time."}
+            {isAdmin
+              ? "System Administrator: full control over creators, permissions, and polls."
+              : isCreator
+              ? "Manage and create live polls for participants."
+              : "Vote on questions and view live results in real-time."}
           </p>
         </div>
-        {isCreator ? (
-          <button className="btn btn-primary" onClick={() => navigate('/create-poll')}>
-            <MdAddCircleOutline size={18} /> {t('createPoll')}
-          </button>
-        ) : (
-          <button className="btn btn-primary" onClick={() => navigate('/polls')}>
-            <MdHowToVote size={18} /> Available Polls
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: 10 }}>
+          {isAdmin && (
+            <button
+              className="btn btn-outline"
+              onClick={() => navigate('/admin')}
+              style={{ borderColor: 'var(--error)', color: 'var(--error)' }}
+            >
+              🛡️ Admin Control Center
+            </button>
+          )}
+          {isAdmin || isCreator ? (
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate('/create-poll')}
+              disabled={isCreator && perms.canCreatePoll === false}
+              title={isCreator && perms.canCreatePoll === false ? 'Creation permission revoked by admin' : ''}
+            >
+              <MdAddCircleOutline size={18} /> {t('createPoll')}
+            </button>
+          ) : (
+            <button className="btn btn-primary" onClick={() => navigate('/polls')}>
+              <MdHowToVote size={18} /> Available Polls
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Notice banner for creators with revoked permissions */}
+      {hasRevoked && (
+        <div
+          style={{
+            padding: '14px 18px',
+            background: 'var(--warning-bg)',
+            border: '1px solid #fde68a',
+            borderRadius: 'var(--border-radius-sm)',
+            marginBottom: 24,
+            fontSize: '0.85rem',
+            color: '#92400e',
+          }}
+        >
+          ⚠️ <strong>Permission Notice:</strong> An administrator has updated your creator permissions. Certain actions (e.g. creating, editing, or deleting polls) may be restricted. View details on <strong style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => navigate('/my-polls')}>Creator Dashboard</strong>.
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid-4" style={{ marginBottom: 28 }}>

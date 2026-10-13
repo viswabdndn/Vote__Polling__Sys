@@ -9,13 +9,20 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://127.0.0.1:5000',
         changeOrigin: true,
       },
       '/socket.io': {
-        target: 'http://localhost:5000',
+        target: 'http://127.0.0.1:5000',
         changeOrigin: true,
         ws: true,
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            // Ignore socket disconnect/reset errors during dev navigation
+            if (err.code === 'ECONNABORTED' || err.code === 'ECONNRESET') return;
+            console.error('Proxy error:', err);
+          });
+        },
       },
     },
   },

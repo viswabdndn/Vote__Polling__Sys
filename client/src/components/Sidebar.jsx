@@ -11,6 +11,7 @@ import {
   MdPerson,
   MdSettings,
   MdLogout,
+  MdAdminPanelSettings,
 } from 'react-icons/md';
 
 const Sidebar = () => {
@@ -23,15 +24,26 @@ const Sidebar = () => {
     navigate('/login');
   };
 
+  const isAdmin = user?.role === 'admin';
+  const isCreator = user?.role === 'creator';
   const isParticipant = user?.role === 'participant';
 
   const navItems = [
-    { to: '/dashboard', icon: <MdDashboard size={20} />, label: t('dashboard') },
-    { to: '/polls', icon: <MdPoll size={20} />, label: t('availablePolls') },
-    ...(!isParticipant ? [
-      { to: '/create-poll', icon: <MdAddCircleOutline size={20} />, label: t('createPoll') },
-      { to: '/my-polls', icon: <MdBookmarks size={20} />, label: t('myPolls') },
-    ] : []),
+    ...(isAdmin
+      ? [{ to: '/admin', icon: <MdAdminPanelSettings size={20} />, label: 'Admin Dashboard' }]
+      : []),
+    {
+      to: '/dashboard',
+      icon: <MdDashboard size={20} />,
+      label: isCreator ? 'Creator Dashboard' : t('dashboard'),
+    },
+    { to: '/polls', icon: <MdPoll size={20} />, label: isAdmin ? 'All Polls' : t('availablePolls') },
+    ...(isAdmin || isCreator
+      ? [
+          { to: '/create-poll', icon: <MdAddCircleOutline size={20} />, label: t('createPoll') },
+          { to: '/my-polls', icon: <MdBookmarks size={20} />, label: t('myPolls') },
+        ]
+      : []),
     { to: '/history', icon: <MdHistory size={20} />, label: t('pollHistory') },
     { to: '/profile', icon: <MdPerson size={20} />, label: t('profile') },
     { to: '/settings', icon: <MdSettings size={20} />, label: t('settings') },

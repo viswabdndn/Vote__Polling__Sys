@@ -11,6 +11,7 @@ const Register = () => {
     email: '',
     password: '',
     confirmPassword: '',
+    role: 'participant',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -75,6 +76,54 @@ const Register = () => {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* Account Role Selector */}
+          <div className="form-group" style={{ marginBottom: 18 }}>
+            <label className="form-label">I want to register as:</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, role: 'participant' })}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 'var(--border-radius-sm)',
+                  border: form.role === 'participant' ? '2px solid var(--accent)' : '1.5px solid var(--border)',
+                  background: form.role === 'participant' ? 'rgba(0,180,216,0.1)' : 'var(--surface)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: form.role === 'participant' ? 'var(--accent-hover)' : 'var(--text-primary)' }}>
+                  🎓 Participant
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                  Vote in active polls
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, role: 'creator' })}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 'var(--border-radius-sm)',
+                  border: form.role === 'creator' ? '2px solid var(--primary-light)' : '1.5px solid var(--border)',
+                  background: form.role === 'creator' ? 'rgba(42,82,152,0.1)' : 'var(--surface)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: form.role === 'creator' ? 'var(--primary-light)' : 'var(--text-primary)' }}>
+                  👑 Poll Creator
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                  Create & manage polls
+                </div>
+              </button>
+            </div>
+          </div>
+
           <div className="form-group">
             <label className="form-label">Full Name</label>
             <div style={{ position: 'relative' }}>

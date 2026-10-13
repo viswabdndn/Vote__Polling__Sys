@@ -37,6 +37,21 @@ const Navbar = () => {
           {mode === 'dark' ? <MdLightMode size={18} color="#f59e0b" /> : <MdDarkMode size={18} color="var(--text-secondary)" />}
         </button>
 
+        {/* Admin Quick Button */}
+        {user?.role === 'admin' && (
+          <button
+            onClick={() => navigate('/admin')}
+            style={{
+              ...styles.iconBtn,
+              background: 'rgba(220, 38, 38, 0.1)',
+              borderColor: 'rgba(220, 38, 38, 0.3)',
+            }}
+            title="Admin Dashboard"
+          >
+            <span style={{ fontSize: '1rem' }}>🛡️</span>
+          </button>
+        )}
+
         {/* Quick Settings Button */}
         <button
           onClick={() => navigate('/settings')}
@@ -54,8 +69,27 @@ const Navbar = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={styles.userName}>{user?.name}</span>
-              <span className={`badge ${user?.role === 'creator' ? 'badge-primary' : 'badge-active'}`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                {user?.role === 'creator' ? '👑 Creator' : '🎓 Participant'}
+              <span
+                className={`badge ${
+                  user?.role === 'admin'
+                    ? 'badge-closed'
+                    : user?.role === 'creator'
+                    ? 'badge-primary'
+                    : 'badge-active'
+                }`}
+                style={{
+                  fontSize: '0.68rem',
+                  padding: '1px 6px',
+                  ...(user?.role === 'admin'
+                    ? { background: 'rgba(220, 38, 38, 0.12)', color: 'var(--error)' }
+                    : {}),
+                }}
+              >
+                {user?.role === 'admin'
+                  ? '🛡️ Admin'
+                  : user?.role === 'creator'
+                  ? '👑 Creator'
+                  : '🎓 Participant'}
               </span>
             </div>
             <div style={styles.userEmail}>

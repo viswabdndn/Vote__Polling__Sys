@@ -27,8 +27,30 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['creator', 'participant'],
+      enum: ['admin', 'creator', 'participant'],
       default: 'participant',
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    creatorPermissions: {
+      canCreatePoll: {
+        type: Boolean,
+        default: true,
+      },
+      canEditPoll: {
+        type: Boolean,
+        default: true,
+      },
+      canPublishPoll: {
+        type: Boolean,
+        default: true,
+      },
+      canDeletePoll: {
+        type: Boolean,
+        default: true,
+      },
     },
     password: {
       type: String,

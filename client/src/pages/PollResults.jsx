@@ -1,24 +1,40 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { voteAPI, pollAPI } from '../services/api';
+import { voteAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import ResultChart from '../components/ResultChart';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { exportToExcel, exportToDoc, exportToPdf } from '../utils/exportUtils';
 import {
   MdBarChart, MdHowToVote, MdTimer, MdPerson, MdEmojiEvents,
-  MdLock, MdSignalWifi4Bar, MdShare,
+  MdLock, MdSignalWifi4Bar, MdShare, MdSupervisorAccount,
+  MdSearch, MdClear,
 } from 'react-icons/md';
+import { FaFileExcel, FaFileWord, FaFilePdf } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  (window.location.port === '5173'
+    ? `${window.location.protocol}//${window.location.hostname}:5000`
+    : window.location.origin);
 
 const PollResults = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [poll, setPoll] = useState(null);
-  const [results, setResults] = useState({ options: [], totalVotes: 0, winner: null });
+  const [results, setResults] = useState({
+    options: [],
+    totalVotes: 0,
+    winner: null,
+    isCreator: false,
+    participantVotes: [],
+  });
   const [loading, setLoading] = useState(true);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const handleCopyLink = () => {
     const shareUrl = `${window.location.origin}/polls/${id}/vote`;
@@ -30,20 +46,29 @@ const PollResults = () => {
     try {
       const { data } = await voteAPI.getResults(id);
       setPoll(data.poll);
-      setResults({ options: data.options, totalVotes: data.totalVotes, winner: data.winner });
+      setResults({
+        options: data.options,
+        totalVotes: data.totalVotes,
+        winner: data.winner,
+        isCreator: data.isCreator,
+        participantVotes: data.participantVotes || [],
+      });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to load results.');
       navigate('/polls');
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, navigate]);
 
   useEffect(() => {
     fetchResults();
 
     // Socket.IO — join poll room for live updates
-    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+    const socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+    });
 
     socket.on('connect', () => {
       setSocketConnected(true);
@@ -54,16 +79,69 @@ const PollResults = () => {
 
     socket.on('voteUpdated', (data) => {
       if (data.pollId === id) {
-        setResults({ options: data.options, totalVotes: data.totalVotes, winner: data.winner });
-        toast.success('Results updated!', { duration: 2000, icon: '📊' });
+        // Refreshes options, vote counts, and participant responses live
+        fetchResults();
+        toast.success('New vote recorded live!', { duration: 2000, icon: '📊' });
       }
     });
 
     return () => {
-      socket.emit('leavePoll', id);
+      if (socket.connected) {
+        socket.emit('leavePoll', id);
+      }
       socket.disconnect();
     };
   }, [id, fetchResults]);
+
+  // Determine if the current viewer is the poll creator owner or system admin
+  const isCreatorViewer = useMemo(() => {
+    if (results.isCreator) return true;
+    if (user?.role === 'admin') return true;
+    if (poll?.createdBy?._id && user?._id && poll.createdBy._id.toString() === user._id.toString()) return true;
+    return false;
+  }, [results.isCreator, user, poll]);
+
+  // Filter participant records by search term
+  const filteredParticipants = useMemo(() => {
+    const votes = results.participantVotes || [];
+    if (!searchTerm.trim()) return votes;
+    const term = searchTerm.toLowerCase();
+    return votes.filter(
+      (p) =>
+        p.participantId?.toLowerCase().includes(term) ||
+        p.name?.toLowerCase().includes(term) ||
+        p.email?.toLowerCase().includes(term) ||
+        p.optionText?.toLowerCase().includes(term)
+    );
+  }, [results.participantVotes, searchTerm]);
+
+  // Download actions
+  const handleExportExcel = () => {
+    if (!results.participantVotes?.length) {
+      toast.error('No participant votes to export yet.');
+      return;
+    }
+    exportToExcel(poll, results.participantVotes, results.options);
+    toast.success('Excel report downloaded! 📊');
+  };
+
+  const handleExportDoc = () => {
+    if (!results.participantVotes?.length) {
+      toast.error('No participant votes to export yet.');
+      return;
+    }
+    exportToDoc(poll, results.participantVotes, results.options);
+    toast.success('Word (.doc) report downloaded! 📄');
+  };
+
+  const handleExportPdf = () => {
+    if (!results.participantVotes?.length) {
+      toast.error('No participant votes to export yet.');
+      return;
+    }
+    exportToPdf(poll, results.participantVotes, results.options);
+    toast.success('PDF report downloaded! 📑');
+  };
 
   if (loading) return (
     <div className="page-container">
@@ -194,33 +272,265 @@ const PollResults = () => {
               </div>
             ) : (
               results.options.map((opt, i) => (
-                <div key={opt._id} className="result-row">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 160, flexShrink: 0 }}>
-                    {i === 0 && results.totalVotes > 0 && (
-                      <span style={{ fontSize: '0.9rem' }}>🥇</span>
-                    )}
-                    {i === 1 && results.totalVotes > 0 && (
-                      <span style={{ fontSize: '0.9rem' }}>🥈</span>
-                    )}
-                    {i === 2 && results.totalVotes > 0 && (
-                      <span style={{ fontSize: '0.9rem' }}>🥉</span>
-                    )}
-                    {i > 2 && <span style={{ width: 22 }} />}
-                    <span className="result-label" style={{ width: 'auto' }} title={opt.text}>{opt.text}</span>
+                <div
+                  key={opt._id}
+                  className="result-row"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                    padding: '14px 0',
+                    borderBottom: i === results.options.length - 1 ? 'none' : '1px solid var(--border-light)',
+                  }}
+                >
+                  {/* Top row: Medal/Rank + Option Text and % + Vote Count */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                      {i === 0 && results.totalVotes > 0 && (
+                        <span style={{ fontSize: '1.1rem', flexShrink: 0, lineHeight: 1 }} title="1st Place">🥇</span>
+                      )}
+                      {i === 1 && results.totalVotes > 0 && (
+                        <span style={{ fontSize: '1.1rem', flexShrink: 0, lineHeight: 1 }} title="2nd Place">🥈</span>
+                      )}
+                      {i === 2 && results.totalVotes > 0 && (
+                        <span style={{ fontSize: '1.1rem', flexShrink: 0, lineHeight: 1 }} title="3rd Place">🥉</span>
+                      )}
+                      {i > 2 && (
+                        <span
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: '50%',
+                            background: 'var(--bg-alt, #f1f5f9)',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {i + 1}
+                        </span>
+                      )}
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          fontSize: '0.92rem',
+                          color: 'var(--text-primary)',
+                          lineHeight: 1.4,
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {opt.text}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexShrink: 0 }}>
+                      <span
+                        style={{
+                          fontWeight: 800,
+                          fontSize: '0.95rem',
+                          color: opt.percentage > 0 ? 'var(--accent)' : 'var(--text-muted)',
+                          minWidth: 46,
+                          textAlign: 'right',
+                        }}
+                      >
+                        {opt.percentage}%
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.82rem',
+                          color: 'var(--text-muted)',
+                          minWidth: 54,
+                          textAlign: 'right',
+                        }}
+                      >
+                        {opt.voteCount} vote{opt.voteCount !== 1 ? 's' : ''}
+                      </span>
+                    </div>
                   </div>
-                  <div className="progress-bar-wrap">
+
+                  {/* Bottom row: Full-width modern progress bar */}
+                  <div className="progress-bar-wrap" style={{ width: '100%', height: 10, margin: 0 }}>
                     <div
                       className="progress-bar-fill"
-                      style={{ width: `${opt.percentage}%` }}
+                      style={{
+                        width: `${opt.percentage}%`,
+                        background:
+                          i === 0 && results.totalVotes > 0
+                            ? 'linear-gradient(90deg, #2563eb, #38bdf8)'
+                            : 'linear-gradient(90deg, var(--accent), var(--primary-light))',
+                      }}
                     />
                   </div>
-                  <span className="result-percent">{opt.percentage}%</span>
-                  <span className="result-count">{opt.voteCount} vote{opt.voteCount !== 1 ? 's' : ''}</span>
                 </div>
               ))
             )}
           </div>
         </div>
+
+        {/* Creator Exclusive: Participant Breakdown & Export */}
+        {isCreatorViewer && (
+          <div className="card" style={{ marginTop: 24, border: '1px solid var(--border)' }}>
+            <div
+              className="card-header"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12,
+                background: 'linear-gradient(135deg, rgba(30, 58, 95, 0.04) 0%, rgba(0, 180, 216, 0.04) 100%)',
+              }}
+            >
+              <div>
+                <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+                  <MdSupervisorAccount size={20} color="var(--primary)" />
+                  Participant Voting Details
+                  <span className="badge badge-primary" style={{ fontSize: '0.72rem', textTransform: 'uppercase' }}>
+                    Creator View
+                  </span>
+                </h2>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Participant IDs and their selected poll options. You can export this audit report below.
+                </p>
+              </div>
+
+              {/* Download Buttons */}
+              <div className="export-btn-group">
+                <button
+                  className="btn-export btn-export-excel"
+                  onClick={handleExportExcel}
+                  title="Download report as Excel (.xlsx)"
+                >
+                  <FaFileExcel size={14} /> Excel
+                </button>
+                <button
+                  className="btn-export btn-export-doc"
+                  onClick={handleExportDoc}
+                  title="Download report as Word (.doc)"
+                >
+                  <FaFileWord size={14} /> Word
+                </button>
+                <button
+                  className="btn-export btn-export-pdf"
+                  onClick={handleExportPdf}
+                  title="Download report as PDF (.pdf)"
+                >
+                  <FaFilePdf size={14} /> PDF
+                </button>
+              </div>
+            </div>
+
+            <div className="card-body" style={{ padding: '18px 24px' }}>
+              {/* Search & Stats Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', minWidth: 260, flex: 1, maxWidth: 360 }}>
+                  <MdSearch
+                    size={18}
+                    style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
+                  />
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Search by ID, name, or option..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ paddingLeft: 34, paddingRight: searchTerm ? 32 : 12, height: 38, fontSize: '0.85rem' }}
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      style={{
+                        position: 'absolute',
+                        right: 8,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      <MdClear size={16} />
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                  Showing <strong style={{ color: 'var(--text-primary)' }}>{filteredParticipants.length}</strong> of{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>{results.participantVotes?.length || 0}</strong> participant votes
+                </div>
+              </div>
+
+              {/* Participant Table */}
+              {results.participantVotes?.length === 0 ? (
+                <div className="empty-state" style={{ padding: '30px 0' }}>
+                  <p className="empty-state-title">No participant votes yet</p>
+                  <p className="empty-state-desc">When participants cast their votes, their participant IDs and choices will appear here in real time.</p>
+                </div>
+              ) : filteredParticipants.length === 0 ? (
+                <div className="empty-state" style={{ padding: '24px 0' }}>
+                  <p className="empty-state-title">No matching participants</p>
+                  <p className="empty-state-desc">No participant matches "{searchTerm}". Try a different keyword.</p>
+                </div>
+              ) : (
+                <div className="participant-table-wrap">
+                  <table className="participant-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '5%', textAlign: 'center' }}>#</th>
+                        <th style={{ width: '20%' }}>Participant ID</th>
+                        <th style={{ width: '22%' }}>Name</th>
+                        <th style={{ width: '23%' }}>Email</th>
+                        <th style={{ width: '18%' }}>Selected Option</th>
+                        <th style={{ width: '12%' }}>Submitted At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredParticipants.map((p, index) => (
+                        <tr key={p._id || index}>
+                          <td style={{ textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {p.slNo || index + 1}
+                          </td>
+                          <td>
+                            <span className="voter-id-badge">
+                              {p.participantId}
+                            </span>
+                          </td>
+                          <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {p.name}
+                          </td>
+                          <td style={{ color: 'var(--text-secondary)' }}>
+                            {p.email}
+                          </td>
+                          <td>
+                            <span className="option-badge-voted">
+                              ✓ {p.optionText}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                            {new Date(p.votedAt).toLocaleDateString()}{' '}
+                            {new Date(p.votedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

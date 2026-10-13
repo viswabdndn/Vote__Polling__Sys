@@ -127,6 +127,13 @@ const Login = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <button
               type="button"
+              onClick={() => setForm({ identifier: 'admin@polllive.local', password: 'AdminPass123!' })}
+              style={{ textAlign: 'left', background: 'var(--surface)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 6, padding: '6px 10px', fontSize: '0.78rem', color: 'var(--text-primary)', cursor: 'pointer' }}
+            >
+              🛡️ <strong>Admin (System Admin):</strong> <code>admin@polllive.local</code> / <code>AdminPass123!</code>
+            </button>
+            <button
+              type="button"
               onClick={() => setForm({ identifier: 'john@example.com', password: 'password123' })}
               style={{ textAlign: 'left', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: '0.78rem', color: 'var(--text-primary)', cursor: 'pointer' }}
             >

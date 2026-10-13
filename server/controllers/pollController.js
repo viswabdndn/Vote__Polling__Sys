@@ -7,10 +7,16 @@ const Vote = require('../models/Vote');
 // @access  Private
 const createPoll = async (req, res, next) => {
   try {
-    // Ensure only creators can create polls
+    // Ensure participants cannot create polls
     if (req.user.role === 'participant') {
       res.status(403);
       throw new Error('Participants are only allowed to answer/vote in polls. Only poll creators can create polls.');
+    }
+
+    // Check creator permission
+    if (req.user.role === 'creator' && req.user.creatorPermissions?.canCreatePoll === false) {
+      res.status(403);
+      throw new Error('Permission denied: Permission to create polls has been revoked by an administrator.');
     }
 
     const { title, description, options, startTime, expiryTime } = req.body;
@@ -54,6 +60,11 @@ const createPoll = async (req, res, next) => {
       throw new Error('Expiry date/time must be in the future.');
     }
 
+    const isAdmin = req.user.role === 'admin';
+    const approvalStatus = isAdmin ? 'approved' : 'pending';
+    const approvedBy = isAdmin ? req.user._id : undefined;
+    const approvedAt = isAdmin ? new Date() : undefined;
+
     // Create poll
     const poll = await Poll.create({
       title: title.trim(),
@@ -62,6 +73,9 @@ const createPoll = async (req, res, next) => {
       startTime: startTime ? new Date(startTime) : new Date(),
       expiryTime: expiry,
       status: 'active',
+      approvalStatus,
+      approvedBy,
+      approvedAt,
     });
 
     // Create options linked to poll
@@ -69,9 +83,13 @@ const createPoll = async (req, res, next) => {
       cleanOptions.map((text) => ({ pollId: poll._id, text }))
     );
 
+    const message = isAdmin
+      ? 'Poll created and published successfully.'
+      : 'Poll submitted successfully. It has been sent to the administrator for review and approval.';
+
     res.status(201).json({
       success: true,
-      message: 'Poll created successfully.',
+      message,
       poll: {
         ...poll.toJSON(),
         options: optionDocs,
@@ -91,7 +109,7 @@ const getAllPolls = async (req, res, next) => {
       .populate('createdBy', 'name email')
       .sort({ createdAt: -1 });
 
-    const pollsWithOptions = await attachOptions(polls);
+    const pollsWithOptions = await attachOptions(polls, true);
 
     res.json({ success: true, polls: pollsWithOptions });
   } catch (error) {
@@ -99,13 +117,14 @@ const getAllPolls = async (req, res, next) => {
   }
 };
 
-// @desc    Get only active (non-expired) polls
+// @desc    Get only active (approved and non-expired) polls
 // @route   GET /api/polls/active
 // @access  Private
 const getActivePolls = async (req, res, next) => {
   try {
     const now = new Date();
     const polls = await Poll.find({
+      approvalStatus: 'approved',
       status: 'active',
       expiryTime: { $gt: now },
     })
@@ -120,13 +139,14 @@ const getActivePolls = async (req, res, next) => {
   }
 };
 
-// @desc    Get archived/closed polls
+// @desc    Get archived/closed polls (approved and closed or expired)
 // @route   GET /api/polls/archive
 // @access  Private
 const getArchivedPolls = async (req, res, next) => {
   try {
     const now = new Date();
     const polls = await Poll.find({
+      approvalStatus: 'approved',
       $or: [{ status: 'closed' }, { expiryTime: { $lte: now } }],
     })
       .populate('createdBy', 'name email')
@@ -147,6 +167,7 @@ const getMyPolls = async (req, res, next) => {
   try {
     const polls = await Poll.find({ createdBy: req.user._id })
       .populate('createdBy', 'name email')
+      .populate('approvedBy', 'name email')
       .sort({ createdAt: -1 });
 
     const pollsWithOptions = await attachOptions(polls, true);
@@ -162,10 +183,9 @@ const getMyPolls = async (req, res, next) => {
 // @access  Private
 const getPollById = async (req, res, next) => {
   try {
-    const poll = await Poll.findById(req.params.id).populate(
-      'createdBy',
-      'name email'
-    );
+    const poll = await Poll.findById(req.params.id)
+      .populate('createdBy', 'name email voterId')
+      .populate('approvedBy', 'name email');
 
     if (!poll) {
       res.status(404);
@@ -188,9 +208,76 @@ const getPollById = async (req, res, next) => {
   }
 };
 
-// @desc    Close a poll manually
+// @desc    Update a poll (Admin or Poll Creator with permission)
+// @route   PUT /api/polls/:id
+// @access  Private (Owner creator or Admin)
+const updatePoll = async (req, res, next) => {
+  try {
+    const poll = await Poll.findById(req.params.id);
+
+    if (!poll) {
+      res.status(404);
+      throw new Error('Poll not found.');
+    }
+
+    const isOwner = poll.createdBy.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    // Ownership check: Creators cannot edit other creators' polls
+    if (!isAdmin && !isOwner) {
+      res.status(403);
+      throw new Error('Forbidden: You can only edit polls you created.');
+    }
+
+    // Permission check for creator
+    if (!isAdmin && req.user.creatorPermissions?.canEditPoll === false) {
+      res.status(403);
+      throw new Error('Permission denied: Permission to edit polls has been revoked by an administrator.');
+    }
+
+    const { title, description, expiryTime, status } = req.body;
+
+    if (title && title.trim().length >= 5) {
+      poll.title = title.trim();
+    }
+    if (typeof description === 'string') {
+      poll.description = description.trim();
+    }
+    if (expiryTime) {
+      const exp = new Date(expiryTime);
+      if (isNaN(exp.getTime())) {
+        res.status(400);
+        throw new Error('Invalid expiry date/time.');
+      }
+      poll.expiryTime = exp;
+    }
+    if (status && ['active', 'closed'].includes(status)) {
+      if (!isAdmin && req.user.creatorPermissions?.canPublishPoll === false) {
+        res.status(403);
+        throw new Error('Permission denied: Permission to publish or change poll status has been revoked.');
+      }
+      poll.status = status;
+    }
+
+    await poll.save();
+
+    const options = await Option.find({ pollId: poll._id });
+    res.json({
+      success: true,
+      message: 'Poll updated successfully.',
+      poll: {
+        ...poll.toJSON(),
+        options,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Close a poll manually (Admin or Owner with canPublishPoll)
 // @route   PUT /api/polls/:id/close
-// @access  Private (creator only)
+// @access  Private (creator owner or admin)
 const closePoll = async (req, res, next) => {
   try {
     const poll = await Poll.findById(req.params.id);
@@ -200,10 +287,19 @@ const closePoll = async (req, res, next) => {
       throw new Error('Poll not found.');
     }
 
-    // Only creator can close
-    if (poll.createdBy.toString() !== req.user._id.toString()) {
+    const isOwner = poll.createdBy.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    // Ownership check
+    if (!isAdmin && !isOwner) {
       res.status(403);
-      throw new Error('You are not authorized to close this poll.');
+      throw new Error('Forbidden: You are not authorized to close this poll.');
+    }
+
+    // Permission check for creator
+    if (!isAdmin && req.user.creatorPermissions?.canPublishPoll === false) {
+      res.status(403);
+      throw new Error('Permission denied: Permission to publish or close polls has been revoked by an administrator.');
     }
 
     if (poll.status === 'closed') {
@@ -215,6 +311,87 @@ const closePoll = async (req, res, next) => {
     await poll.save();
 
     res.json({ success: true, message: 'Poll closed successfully.', poll });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Toggle poll status between active and closed
+// @route   PUT /api/polls/:id/status
+// @access  Private (creator owner or admin)
+const togglePollStatus = async (req, res, next) => {
+  try {
+    const poll = await Poll.findById(req.params.id);
+
+    if (!poll) {
+      res.status(404);
+      throw new Error('Poll not found.');
+    }
+
+    const isOwner = poll.createdBy.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    // Ownership check
+    if (!isAdmin && !isOwner) {
+      res.status(403);
+      throw new Error('Forbidden: You are not authorized to manage this poll.');
+    }
+
+    // Permission check for creator
+    if (!isAdmin && req.user.creatorPermissions?.canPublishPoll === false) {
+      res.status(403);
+      throw new Error('Permission denied: Permission to publish or change poll status has been revoked by an administrator.');
+    }
+
+    poll.status = poll.status === 'active' ? 'closed' : 'active';
+    await poll.save();
+
+    res.json({
+      success: true,
+      message: `Poll status updated to ${poll.status}.`,
+      poll,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete a poll (Admin or Owner with canDeletePoll)
+// @route   DELETE /api/polls/:id
+// @access  Private (creator owner or admin)
+const deletePoll = async (req, res, next) => {
+  try {
+    const poll = await Poll.findById(req.params.id);
+
+    if (!poll) {
+      res.status(404);
+      throw new Error('Poll not found.');
+    }
+
+    const isOwner = poll.createdBy.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    // Ownership check: Creators cannot delete other creators' polls
+    if (!isAdmin && !isOwner) {
+      res.status(403);
+      throw new Error('Forbidden: You can only delete polls you created.');
+    }
+
+    // Permission check for creator
+    if (!isAdmin && req.user.creatorPermissions?.canDeletePoll === false) {
+      res.status(403);
+      throw new Error('Permission denied: Permission to delete polls has been revoked by an administrator.');
+    }
+
+    // Delete associated votes and options
+    await Vote.deleteMany({ pollId: poll._id });
+    await Option.deleteMany({ pollId: poll._id });
+    await Poll.findByIdAndDelete(poll._id);
+
+    res.json({
+      success: true,
+      message: 'Poll and all associated options and votes deleted successfully.',
+    });
   } catch (error) {
     next(error);
   }
@@ -255,5 +432,8 @@ module.exports = {
   getArchivedPolls,
   getMyPolls,
   getPollById,
+  updatePoll,
   closePoll,
+  togglePollStatus,
+  deletePoll,
 };

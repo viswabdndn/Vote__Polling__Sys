@@ -31,6 +31,15 @@ const protect = async (req, res, next) => {
         .json({ success: false, message: 'User no longer exists.' });
     }
 
+    // Check if account has been deactivated
+    if (req.user.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account has been deactivated by an administrator.',
+        code: 'ACCOUNT_DEACTIVATED',
+      });
+    }
+
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
@@ -44,4 +53,61 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+// Role-based authorization middleware
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res
+        .status(401)
+        .json({ success: false, message: 'Not authorized.' });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied. Role '${req.user.role}' is not authorized to access this resource.`,
+        code: 'ROLE_FORBIDDEN',
+      });
+    }
+
+    next();
+  };
+};
+
+// Granular creator permission check (Admin always bypasses)
+const checkCreatorPermission = (permissionKey) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res
+        .status(401)
+        .json({ success: false, message: 'Not authorized.' });
+    }
+
+    // Admins have full access to all creator features
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
+    if (req.user.role !== 'creator') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only poll creators or administrators can perform this action.',
+        code: 'CREATOR_REQUIRED',
+      });
+    }
+
+    const perms = req.user.creatorPermissions || {};
+    if (perms[permissionKey] === false) {
+      return res.status(403).json({
+        success: false,
+        message: `Permission denied: '${permissionKey}' has been revoked by an administrator.`,
+        code: 'PERMISSION_REVOKED',
+        permission: permissionKey,
+      });
+    }
+
+    next();
+  };
+};
+
+module.exports = { protect, authorize, checkCreatorPermission };

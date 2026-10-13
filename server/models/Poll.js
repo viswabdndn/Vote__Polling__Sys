@@ -33,17 +33,40 @@ const pollSchema = new mongoose.Schema(
       enum: ['active', 'closed'],
       default: 'active',
     },
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    approvedAt: {
+      type: Date,
+    },
+    rejectionReason: {
+      type: String,
+      default: '',
+      trim: true,
+    },
   },
   { timestamps: true }
 );
 
-// Virtual: check if poll is currently active (not expired and not manually closed)
+// Virtual: check if poll is currently active (approved, not expired, and not manually closed)
 pollSchema.virtual('isExpired').get(function () {
   return new Date() >= this.expiryTime;
 });
 
-// Virtual: effective status (considers both manual close and time expiry)
+// Virtual: effective status (considers approval, manual close, and time expiry)
 pollSchema.virtual('effectiveStatus').get(function () {
+  if (this.approvalStatus === 'pending') {
+    return 'pending';
+  }
+  if (this.approvalStatus === 'rejected') {
+    return 'rejected';
+  }
   if (this.status === 'closed' || new Date() >= this.expiryTime) {
     return 'closed';
   }

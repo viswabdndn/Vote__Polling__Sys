@@ -528,9 +528,9 @@ input, textarea, select { font-family: inherit; }
 
 .result-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 0;
   border-bottom: 1px solid var(--border-light);
   animation: fadeInUp 0.3s ease forwards;
 }
@@ -538,30 +538,25 @@ input, textarea, select { font-family: inherit; }
 .result-row:last-child { border-bottom: none; }
 
 .result-label {
-  width: 140px;
-  font-size: 0.875rem;
+  font-size: 0.92rem;
   font-weight: 600;
   color: var(--text-primary);
-  flex-shrink: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 .result-percent {
-  width: 42px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--accent);
   text-align: right;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--accent-hover);
   flex-shrink: 0;
 }
 
 .result-count {
-  width: 70px;
-  text-align: right;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
+  text-align: right;
   flex-shrink: 0;
 }
 
@@ -1173,5 +1168,126 @@ input:checked + .slider:before {
 .quick-theme-pill.active {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* =====================================================
+   Participant Breakdown & Export Styles
+   ===================================================== */
+.export-btn-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.btn-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+}
+
+.btn-export-excel {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+.btn-export-excel:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-export-doc {
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+.btn-export-doc:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.btn-export-pdf {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+.btn-export-pdf:hover {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+}
+
+.participant-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border);
+}
+
+.participant-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.participant-table th {
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.participant-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.participant-table tr:hover {
+  background: var(--surface-hover);
+}
+
+.participant-table tr:last-child td {
+  border-bottom: none;
+}
+
+.voter-id-badge {
+  display: inline-block;
+  font-family: monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.option-badge-voted {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }
 

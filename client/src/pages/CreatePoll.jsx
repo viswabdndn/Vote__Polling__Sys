@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { pollAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { MdAdd, MdDelete, MdAccessTime } from 'react-icons/md';
+import AccessDenied from '../components/AccessDenied';
 import toast from 'react-hot-toast';
 
 const CreatePoll = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -14,6 +17,19 @@ const CreatePoll = () => {
   });
   const [options, setOptions] = useState(['', '']);
   const [errors, setErrors] = useState({});
+
+  const isAdmin = user?.role === 'admin';
+  const canCreate = isAdmin || user?.creatorPermissions?.canCreatePoll !== false;
+
+  if (!canCreate) {
+    return (
+      <AccessDenied
+        title="Poll Creation Revoked"
+        message="An administrator has revoked your permission to create new polls. Please contact the system administrator to request access."
+        requiredPermission="canCreatePoll"
+      />
+    );
+  }
 
   // Default expiry to 24h from now
   const defaultExpiry = () => {
@@ -75,8 +91,12 @@ const CreatePoll = () => {
         options: options.map((o) => o.trim()).filter(Boolean),
       };
       const { data } = await pollAPI.create(payload);
-      toast.success('Poll created successfully.');
-      navigate(`/polls/${data.poll._id}/results`);
+      toast.success(data.message || (isAdmin ? 'Poll published!' : 'Poll submitted for Admin approval!'));
+      if (isAdmin) {
+        navigate(`/polls/${data.poll._id}/results`);
+      } else {
+        navigate('/my-polls');
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create poll.');
     } finally {
@@ -87,11 +107,37 @@ const CreatePoll = () => {
   return (
     <div className="page-container animate-fadeIn">
       <div className="page-header">
-        <h1 className="page-title">Create New Poll</h1>
-        <p className="page-subtitle">Set up a poll with multiple voting options</p>
+        <h1 className="page-title">{isAdmin ? 'Create & Publish Poll' : 'Submit Poll for Approval'}</h1>
+        <p className="page-subtitle">
+          {isAdmin
+            ? 'Set up and immediately publish a poll for voting'
+            : 'Submit a poll proposal with voting options to the administrator for review'}
+        </p>
       </div>
 
       <div style={{ maxWidth: 680 }}>
+        {!isAdmin && (
+          <div
+            style={{
+              padding: '14px 18px',
+              background: 'var(--info-bg)',
+              border: '1.5px solid #bfdbfe',
+              borderRadius: 'var(--border-radius-sm)',
+              marginBottom: 20,
+              fontSize: '0.85rem',
+              color: 'var(--info)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>⏳</span>
+            <div>
+              <strong>Admin Approval Workflow:</strong> Your poll will be reviewed by an administrator before appearing in Available Polls for participants to vote on.
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           {/* Poll Details */}
           <div className="card" style={{ marginBottom: 20 }}>

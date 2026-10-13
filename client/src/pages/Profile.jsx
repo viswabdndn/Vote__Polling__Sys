@@ -3,11 +3,14 @@ import { MdPerson, MdEmail, MdCalendarToday, MdBadge, MdShield, MdHowToVote } fr
 
 const Profile = () => {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const isCreator = user?.role === 'creator';
 
   const joined = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : 'N/A';
+
+  const perms = user?.creatorPermissions || {};
 
   return (
     <div className="page-container animate-fadeIn">
@@ -23,7 +26,9 @@ const Profile = () => {
             width: 88,
             height: 88,
             borderRadius: '50%',
-            background: isCreator
+            background: isAdmin
+              ? 'linear-gradient(135deg, #ef4444, #991b1b)'
+              : isCreator
               ? 'linear-gradient(135deg, var(--primary-light), var(--primary))'
               : 'linear-gradient(135deg, var(--accent), var(--primary-light))',
             color: '#fff',
@@ -41,8 +46,28 @@ const Profile = () => {
             {user?.name}
           </h2>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
-            <span className={`badge ${isCreator ? 'badge-primary' : 'badge-active'}`} style={{ fontSize: '0.82rem', padding: '3px 12px' }}>
-              {isCreator ? '👑 Poll Creator & Admin' : '🎓 Participant / Voter'}
+            <span
+              className={`badge ${
+                isAdmin
+                  ? 'badge-closed'
+                  : isCreator
+                  ? 'badge-primary'
+                  : 'badge-active'
+              }`}
+              style={{
+                fontSize: '0.82rem',
+                padding: '3px 12px',
+                ...(isAdmin ? { background: 'rgba(220, 38, 38, 0.12)', color: 'var(--error)' } : {}),
+              }}
+            >
+              {isAdmin
+                ? '🛡️ System Administrator'
+                : isCreator
+                ? '👑 Poll Creator'
+                : '🎓 Participant / Voter'}
+            </span>
+            <span className={`badge ${user?.isActive !== false ? 'badge-active' : 'badge-closed'}`}>
+              {user?.isActive !== false ? 'Active Account' : 'Deactivated'}
             </span>
           </div>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{user?.email}</p>
@@ -56,14 +81,18 @@ const Profile = () => {
           <div className="card-body">
             {[
               {
-                icon: isCreator ? <MdShield size={18} /> : <MdBadge size={18} />,
-                label: isCreator ? 'Admin / Creator ID' : 'Participant / 7-Digit ID',
-                value: user?.voterId || (isCreator ? 'Admin' : 'N/A'),
+                icon: isAdmin || isCreator ? <MdShield size={18} /> : <MdBadge size={18} />,
+                label: isAdmin ? 'Admin ID' : isCreator ? 'Creator ID' : 'Participant ID',
+                value: user?.voterId || (isAdmin ? 'admin' : 'N/A'),
               },
               {
                 icon: <MdHowToVote size={18} />,
                 label: 'Account Role',
-                value: isCreator ? '👑 Creator (Creates polls, manages votes, shares links)' : '🎓 Participant (Submits votes, views live results)',
+                value: isAdmin
+                  ? '🛡️ System Administrator (Full platform and creator access)'
+                  : isCreator
+                  ? '👑 Creator (Creates polls, manages votes, views analytics)'
+                  : '🎓 Participant (Submits votes, views live results)',
               },
               { icon: <MdPerson size={18} />, label: 'Full Name', value: user?.name },
               { icon: <MdEmail size={18} />, label: 'Email Address', value: user?.email },
@@ -80,11 +109,15 @@ const Profile = () => {
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: isCreator ? 'rgba(42,82,152,0.08)' : 'rgba(0,180,216,0.08)',
+                  background: isAdmin
+                    ? 'rgba(220, 38, 38, 0.08)'
+                    : isCreator
+                    ? 'rgba(42,82,152,0.08)'
+                    : 'rgba(0,180,216,0.08)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: isCreator ? 'var(--primary-light)' : 'var(--accent)',
+                  color: isAdmin ? 'var(--error)' : isCreator ? 'var(--primary-light)' : 'var(--accent)',
                   flexShrink: 0,
                 }}>
                   {item.icon}
@@ -98,17 +131,50 @@ const Profile = () => {
           </div>
         </div>
 
+        {/* Permissions summary card for creator */}
+        {isCreator && (
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="card-header">
+              <h3 style={{ fontSize: '0.92rem', fontWeight: 700, margin: 0 }}>Creator Permissions</h3>
+            </div>
+            <div className="card-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div style={{ fontSize: '0.82rem' }}>
+                Create Polls: {perms.canCreatePoll !== false ? '✅ Allowed' : '⛔ Revoked'}
+              </div>
+              <div style={{ fontSize: '0.82rem' }}>
+                Edit Polls: {perms.canEditPoll !== false ? '✅ Allowed' : '⛔ Revoked'}
+              </div>
+              <div style={{ fontSize: '0.82rem' }}>
+                Close Polls: {perms.canPublishPoll !== false ? '✅ Allowed' : '⛔ Revoked'}
+              </div>
+              <div style={{ fontSize: '0.82rem' }}>
+                Delete Polls: {perms.canDeletePoll !== false ? '✅ Allowed' : '⛔ Revoked'}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Security / Role note */}
         <div style={{
           marginTop: 16,
           padding: '14px 18px',
-          background: isCreator ? 'rgba(42,82,152,0.06)' : 'var(--success-bg)',
+          background: isAdmin
+            ? 'rgba(220, 38, 38, 0.06)'
+            : isCreator
+            ? 'rgba(42,82,152,0.06)'
+            : 'var(--success-bg)',
           borderRadius: 'var(--border-radius-sm)',
-          border: isCreator ? '1px solid var(--border-light)' : '1px solid #86efac',
+          border: isAdmin
+            ? '1px solid rgba(220, 38, 38, 0.2)'
+            : isCreator
+            ? '1px solid var(--border-light)'
+            : '1px solid #86efac',
         }}>
-          <p style={{ fontSize: '0.82rem', color: isCreator ? 'var(--primary-light)' : 'var(--success)', fontWeight: 600 }}>
-            {isCreator
-              ? '👑 You are logged in as Creator / Admin. You have full privileges to create, manage, and close polls.'
+          <p style={{ fontSize: '0.82rem', color: isAdmin ? 'var(--error)' : isCreator ? 'var(--primary-light)' : 'var(--success)', fontWeight: 600 }}>
+            {isAdmin
+              ? '🛡️ You are logged in as System Administrator. You have full system-wide permissions across all creators, polls, and users.'
+              : isCreator
+              ? '👑 You are logged in as Poll Creator. You can create and manage your own polls according to permissions granted by administrators.'
               : '🎓 You are logged in as a Participant. You can vote in active polls and view real-time results.'}
           </p>
         </div>
