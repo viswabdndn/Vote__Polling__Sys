@@ -1,4 +1,5 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+process.env.NODE_ENV = 'test';
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -67,8 +68,8 @@ const runApprovalTests = async () => {
       body: {
         name: 'Test Creator',
         email: 'test_creator@test.com',
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'Password123!',
+        confirmPassword: 'Password123!',
         voterId: 'CREATOR01',
         role: 'creator',
       },
@@ -82,8 +83,8 @@ const runApprovalTests = async () => {
       body: {
         name: 'Test Participant',
         email: 'test_participant@test.com',
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'Password123!',
+        confirmPassword: 'Password123!',
         voterId: 'VOTER01',
       },
     });
@@ -94,7 +95,7 @@ const runApprovalTests = async () => {
     await User.create({
       name: 'Test Administrator',
       email: 'test_admin@test.com',
-      password: 'password123',
+      password: 'Password123!',
       voterId: 'ADMIN01',
       role: 'admin',
       isActive: true,
@@ -104,7 +105,7 @@ const runApprovalTests = async () => {
       method: 'POST',
       body: {
         email: 'test_admin@test.com',
-        password: 'password123',
+        password: 'Password123!',
       },
     });
     const adminToken = adminLogin.data.token;

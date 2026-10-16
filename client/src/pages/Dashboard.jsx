@@ -11,7 +11,7 @@ import {
   MdTrendingUp,
   MdArrowForward,
 } from 'react-icons/md';
-import LoadingSpinner from '../components/LoadingSpinner';
+import SkeletonLoader from '../components/common/SkeletonLoader';
 
 const StatCard = ({ icon, value, label, color, bgColor, onClick }) => (
   <div className="stat-card" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
@@ -65,32 +65,51 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="page-container">
-        <LoadingSpinner size="lg" text="Loading dashboard..." />
+      <div className="page-container animate-fadeIn">
+        <div style={{ marginBottom: 32 }}>
+          <div className="skeleton" style={{ width: '40%', height: 36, marginBottom: 8 }} />
+          <div className="skeleton" style={{ width: '60%', height: 16 }} />
+        </div>
+        <SkeletonLoader type="statCard" count={4} />
+        <SkeletonLoader type="pollCard" count={4} />
       </div>
     );
   }
 
-  const getGreeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return t('greetingMorning');
-    if (h < 17) return t('greetingAfternoon');
-    return t('greetingEvening');
+  const getBannerDetails = () => {
+    const rawName = user?.name?.trim();
+    const isGenericAdminName = !rawName || rawName.toLowerCase() === 'system administrator';
+    const displayName = isGenericAdminName
+      ? (isAdmin ? 'Administrator' : isCreator ? 'Creator' : 'Participant')
+      : rawName.split(' ')[0];
+
+    if (isAdmin) {
+      return {
+        title: `PollLive welcomes you, ${displayName}! 🛡️`,
+        subtitle: 'Administrator Command Center — Full governance over creators, approvals, and platform integrity.',
+      };
+    }
+    if (isCreator) {
+      return {
+        title: `PollLive welcomes you, ${displayName}! 🚀`,
+        subtitle: 'Creator Studio — Design interactive polls, track participant engagement, and analyze live results.',
+      };
+    }
+    return {
+      title: `PollLive welcomes you, ${displayName}! 🗳️`,
+      subtitle: 'Participant Portal — Explore active polls, cast your vote securely, and watch live results unfold.',
+    };
   };
+
+  const banner = getBannerDetails();
 
   return (
     <div className="page-container animate-fadeIn">
       {/* Header */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 className="page-title">{getGreeting()}, {user?.name?.split(' ')[0]}! 👋</h1>
-          <p className="page-subtitle">
-            {isAdmin
-              ? "System Administrator: full control over creators, permissions, and polls."
-              : isCreator
-              ? "Manage and create live polls for participants."
-              : "Vote on questions and view live results in real-time."}
-          </p>
+          <h1 className="page-title">{banner.title}</h1>
+          <p className="page-subtitle">{banner.subtitle}</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {isAdmin && (
@@ -239,9 +258,15 @@ const Dashboard = () => {
                       </p>
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                      <button className="btn btn-primary btn-sm" onClick={() => navigate(`/polls/${poll._id}/vote`)}>
-                        {t('vote')}
-                      </button>
+                      {isAdmin ? (
+                        <button className="btn btn-primary btn-sm" onClick={() => navigate('/admin')}>
+                          Manage
+                        </button>
+                      ) : (
+                        <button className="btn btn-primary btn-sm" onClick={() => navigate(`/polls/${poll._id}/vote`)}>
+                          {t('vote')}
+                        </button>
+                      )}
                       <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/polls/${poll._id}/results`)}>
                         {t('results')}
                       </button>
@@ -256,7 +281,23 @@ const Dashboard = () => {
 
       {/* Quick Actions */}
       <div className="grid-2" style={{ marginTop: 24 }}>
-        {isCreator ? (
+        {isAdmin ? (
+          <div className="card" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin')}>
+            <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(42,82,152,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <MdPoll size={26} color="var(--primary)" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+                  Admin Control Center
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  Manage creators, review approvals, and monitor system users
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : isCreator ? (
           <div className="card" style={{ cursor: 'pointer' }} onClick={() => navigate('/create-poll')}>
             <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(42,82,152,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

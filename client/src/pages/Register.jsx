@@ -36,8 +36,13 @@ const Register = () => {
       errs.email = 'Enter a valid email address.';
     }
 
-    if (!form.password) errs.password = 'Password is required.';
-    else if (form.password.length < 6) errs.password = 'Password must be at least 6 characters.';
+    if (!form.password) {
+      errs.password = 'Password is required.';
+    } else if (form.password.length < 8) {
+      errs.password = 'Password must be at least 8 characters.';
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(form.password)) {
+      errs.password = 'Password must contain at least one uppercase letter, one lowercase letter, and one number.';
+    }
     if (!form.confirmPassword) errs.confirmPassword = 'Please confirm your password.';
     else if (form.password !== form.confirmPassword) errs.confirmPassword = 'Passwords do not match.';
     return errs;
@@ -76,54 +81,6 @@ const Register = () => {
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Account Role Selector */}
-          <div className="form-group" style={{ marginBottom: 18 }}>
-            <label className="form-label">I want to register as:</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, role: 'participant' })}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 'var(--border-radius-sm)',
-                  border: form.role === 'participant' ? '2px solid var(--accent)' : '1.5px solid var(--border)',
-                  background: form.role === 'participant' ? 'rgba(0,180,216,0.1)' : 'var(--surface)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: form.role === 'participant' ? 'var(--accent-hover)' : 'var(--text-primary)' }}>
-                  🎓 Participant
-                </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                  Vote in active polls
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, role: 'creator' })}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 'var(--border-radius-sm)',
-                  border: form.role === 'creator' ? '2px solid var(--primary-light)' : '1.5px solid var(--border)',
-                  background: form.role === 'creator' ? 'rgba(42,82,152,0.1)' : 'var(--surface)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: form.role === 'creator' ? 'var(--primary-light)' : 'var(--text-primary)' }}>
-                  👑 Poll Creator
-                </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                  Create & manage polls
-                </div>
-              </button>
-            </div>
-          </div>
-
           <div className="form-group">
             <label className="form-label">Full Name</label>
             <div style={{ position: 'relative' }}>
@@ -189,7 +146,7 @@ const Register = () => {
                 type={showPwd ? 'text' : 'password'}
                 className={`form-input ${errors.password ? 'error' : ''}`}
                 style={{ paddingLeft: 38, paddingRight: 42 }}
-                placeholder="Min. 6 characters"
+                placeholder="Min. 8 chars (uppercase, lowercase & digit)"
                 value={form.password}
                 onChange={handleChange}
               />
@@ -244,6 +201,10 @@ const Register = () => {
         <p style={{ textAlign: 'center', marginTop: 24, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
           Already have an account?{' '}
           <Link to="/login" className="auth-link">Sign in with your 7-digit ID</Link>
+        </p>
+
+        <p style={{ textAlign: 'center', marginTop: 12, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          Need a Poll Creator account? Creator accounts are set up exclusively by system administrators.
         </p>
       </div>
     </div>

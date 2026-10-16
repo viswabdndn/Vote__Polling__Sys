@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { adminAPI, pollAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -29,8 +29,16 @@ import toast from 'react-hot-toast';
 const AdminDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState('approvals');
+  const tabParam = searchParams.get('tab');
+  const actionParam = searchParams.get('action');
+
+  const [activeTab, setActiveTab] = useState(
+    tabParam && ['approvals', 'creators', 'polls', 'users'].includes(tabParam)
+      ? tabParam
+      : 'approvals'
+  );
   const [stats, setStats] = useState(null);
   const [creators, setCreators] = useState([]);
   const [users, setUsers] = useState([]);
@@ -66,6 +74,35 @@ const AdminDashboard = () => {
   const [rejectingPoll, setRejectingPoll] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [savingRejection, setSavingRejection] = useState(false);
+
+  // Create Creator Modal State
+  const [showCreateCreatorModal, setShowCreateCreatorModal] = useState(false);
+  const [newCreatorForm, setNewCreatorForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    voterId: '',
+    canCreatePoll: true,
+    canEditPoll: true,
+    canPublishPoll: true,
+    canDeletePoll: true,
+  });
+  const [creatingCreator, setCreatingCreator] = useState(false);
+
+  // Sync tab with URL search params (supports deep linking from sidebar)
+  useEffect(() => {
+    if (tabParam && ['approvals', 'creators', 'polls', 'users'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+    if (actionParam === 'new' && tabParam === 'creators') {
+      setShowCreateCreatorModal(true);
+    }
+  }, [tabParam, actionParam]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
 
   // Load dashboard data
   const fetchData = async () => {
@@ -256,6 +293,40 @@ const AdminDashboard = () => {
       );
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update creator permission.');
+    }
+  };
+
+  const handleCreateCreator = async (e) => {
+    e.preventDefault();
+    if (!newCreatorForm.name.trim() || !newCreatorForm.email.trim() || !newCreatorForm.password) {
+      toast.error('Name, email, and password are required.');
+      return;
+    }
+    if (newCreatorForm.password.length < 8) {
+      toast.error('Password must be at least 8 characters long.');
+      return;
+    }
+
+    setCreatingCreator(true);
+    try {
+      const { data } = await adminAPI.createCreator(newCreatorForm);
+      toast.success(data.message || 'Creator created successfully!');
+      setShowCreateCreatorModal(false);
+      setNewCreatorForm({
+        name: '',
+        email: '',
+        password: '',
+        voterId: '',
+        canCreatePoll: true,
+        canEditPoll: true,
+        canPublishPoll: true,
+        canDeletePoll: true,
+      });
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create creator account.');
+    } finally {
+      setCreatingCreator(false);
     }
   };
 
@@ -566,7 +637,7 @@ const AdminDashboard = () => {
       <div className="tabs" style={{ marginBottom: 24 }}>
         <button
           className={`tab ${activeTab === 'approvals' ? 'active' : ''}`}
-          onClick={() => setActiveTab('approvals')}
+          onClick={() => handleTabChange('approvals')}
           style={{ position: 'relative' }}
         >
           ⏳ Approval Requests
@@ -588,19 +659,19 @@ const AdminDashboard = () => {
         </button>
         <button
           className={`tab ${activeTab === 'creators' ? 'active' : ''}`}
-          onClick={() => setActiveTab('creators')}
+          onClick={() => handleTabChange('creators')}
         >
           👑 Creator Management ({creators.length})
         </button>
         <button
           className={`tab ${activeTab === 'polls' ? 'active' : ''}`}
-          onClick={() => setActiveTab('polls')}
+          onClick={() => handleTabChange('polls')}
         >
           🗳️ All Polls ({polls.length})
         </button>
         <button
           className={`tab ${activeTab === 'users' ? 'active' : ''}`}
-          onClick={() => setActiveTab('users')}
+          onClick={() => handleTabChange('users')}
         >
           👥 User Directory ({users.length})
         </button>
@@ -980,25 +1051,35 @@ const AdminDashboard = () => {
               </p>
             </div>
 
-            <div style={{ position: 'relative', minWidth: 260 }}>
-              <MdSearch
-                size={18}
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Search creator name or email..."
-                className="form-input"
-                style={{ paddingLeft: 38, paddingBottom: 8, paddingTop: 8, fontSize: '0.85rem' }}
-                value={creatorSearch}
-                onChange={(e) => setCreatorSearch(e.target.value)}
-              />
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', minWidth: 240 }}>
+                <MdSearch
+                  size={18}
+                  style={{
+                    position: 'absolute',
+                    left: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)',
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Search creator name or email..."
+                  className="form-input"
+                  style={{ paddingLeft: 38, paddingBottom: 8, paddingTop: 8, fontSize: '0.85rem' }}
+                  value={creatorSearch}
+                  onChange={(e) => setCreatorSearch(e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setShowCreateCreatorModal(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <MdAdd size={16} /> Add Creator
+              </button>
             </div>
           </div>
 
@@ -1880,6 +1961,147 @@ const AdminDashboard = () => {
                   </button>
                   <button type="submit" className="btn btn-primary" disabled={savingEdit}>
                     {savingEdit ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: CREATE CREATOR ================= */}
+      {showCreateCreatorModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div className="card animate-fadeIn" style={{ maxWidth: 520, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <MdShield size={20} color="var(--primary)" /> Add New Creator Account
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCreateCreatorModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="card-body">
+              <form onSubmit={handleCreateCreator}>
+                <div className="form-group">
+                  <label className="form-label">Full Name *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Dr. Jane Smith"
+                    value={newCreatorForm.name}
+                    onChange={(e) => setNewCreatorForm({ ...newCreatorForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Email Address *</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="e.g. janesmith@university.edu"
+                    value={newCreatorForm.email}
+                    onChange={(e) => setNewCreatorForm({ ...newCreatorForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Initial Password *</label>
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder="Min 8 chars with uppercase, lowercase, & number"
+                    value={newCreatorForm.password}
+                    onChange={(e) => setNewCreatorForm({ ...newCreatorForm, password: e.target.value })}
+                    required
+                    minLength={8}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                    Must be at least 8 characters (including uppercase, lowercase, and a digit).
+                  </p>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Staff / Employee ID (Optional)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. CR9021"
+                    value={newCreatorForm.voterId}
+                    onChange={(e) => setNewCreatorForm({ ...newCreatorForm, voterId: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ marginTop: 18, marginBottom: 8 }}>
+                  <label className="form-label" style={{ marginBottom: 10 }}>Initial Creator Permissions</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={newCreatorForm.canCreatePoll}
+                        onChange={(e) => setNewCreatorForm({ ...newCreatorForm, canCreatePoll: e.target.checked })}
+                      />
+                      <span>Create Polls</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={newCreatorForm.canEditPoll}
+                        onChange={(e) => setNewCreatorForm({ ...newCreatorForm, canEditPoll: e.target.checked })}
+                      />
+                      <span>Edit Polls</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={newCreatorForm.canPublishPoll}
+                        onChange={(e) => setNewCreatorForm({ ...newCreatorForm, canPublishPoll: e.target.checked })}
+                      />
+                      <span>Publish / Close</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={newCreatorForm.canDeletePoll}
+                        onChange={(e) => setNewCreatorForm({ ...newCreatorForm, canDeletePoll: e.target.checked })}
+                      />
+                      <span>Delete Polls</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setShowCreateCreatorModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={creatingCreator}
+                  >
+                    {creatingCreator ? 'Creating...' : 'Create Creator Account'}
                   </button>
                 </div>
               </form>

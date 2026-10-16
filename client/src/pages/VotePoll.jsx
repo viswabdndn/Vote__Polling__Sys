@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { pollAPI, voteAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { MdHowToVote, MdPerson, MdTimer, MdBarChart, MdCheckCircle, MdLock, MdShare } from 'react-icons/md';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -9,6 +10,7 @@ import toast from 'react-hot-toast';
 const VotePoll = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { playSound } = useSettings();
   const [poll, setPoll] = useState(null);
   const [selectedOption, setSelectedOption] = useState('');
@@ -127,115 +129,146 @@ const VotePoll = () => {
           </div>
         </div>
 
-        {/* Already voted */}
-        {voteStatus.hasVoted && (
-          <div style={{
-            background: 'var(--success-bg)',
-            border: '1px solid #86efac',
-            borderRadius: 'var(--border-radius)',
-            padding: '16px 20px',
-            marginBottom: 20,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 12,
-          }}>
-            <MdCheckCircle size={22} color="var(--success)" style={{ flexShrink: 0, marginTop: 1 }} />
-            <div>
-              <p style={{ fontWeight: 700, color: 'var(--success)', fontSize: '0.9rem', marginBottom: 2 }}>
-                You already voted in this poll!
-              </p>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                Your vote: <strong>{voteStatus.vote?.optionText}</strong>
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Expired */}
-        {isExpired && !voteStatus.hasVoted && (
-          <div style={{
-            background: 'var(--closed-bg)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--border-radius)',
-            padding: '16px 20px',
-            marginBottom: 20,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-          }}>
-            <MdLock size={22} color="var(--closed-color)" />
-            <p style={{ fontWeight: 600, color: 'var(--closed-color)', fontSize: '0.9rem' }}>
-              This poll has expired. Voting is no longer allowed.
-            </p>
-          </div>
-        )}
-
-        {/* Voting Form */}
-        {!voteStatus.hasVoted && !isExpired && (
-          <div className="card">
-            <div className="card-header">
-              <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Cast Your Vote
+        {/* Administrator Mode: Voting Restricted */}
+        {user?.role === 'admin' ? (
+          <div className="card" style={{ borderLeft: '4px solid var(--primary)', marginBottom: 20 }}>
+            <div className="card-body" style={{ textAlign: 'center', padding: '32px 20px' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>🛡️</div>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+                Administrator Mode: Voting Restricted
               </h2>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                Select one option and click Submit Vote. You can only vote once.
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', maxWidth: 480, margin: '0 auto 24px', lineHeight: 1.6 }}>
+                As a system administrator, your role is focused on managing polls, supervising creators, and ensuring voting integrity. Administrators are restricted from casting votes to maintain poll neutrality.
               </p>
-            </div>
-            <div className="card-body">
-              <form onSubmit={handleVote}>
-                {poll.options?.map((opt) => (
-                  <label
-                    key={opt._id}
-                    className={`vote-option ${selectedOption === opt._id ? 'selected' : ''}`}
-                    htmlFor={`opt-${opt._id}`}
-                  >
-                    <input
-                      id={`opt-${opt._id}`}
-                      type="radio"
-                      name="voteOption"
-                      value={opt._id}
-                      checked={selectedOption === opt._id}
-                      onChange={() => setSelectedOption(opt._id)}
-                    />
-                    <span className="vote-option-text">{opt.text}</span>
-                  </label>
-                ))}
-
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button
-                  id="cast-vote-btn"
-                  type="submit"
-                  className="btn btn-primary btn-full btn-lg"
-                  style={{ marginTop: 16 }}
-                  disabled={submitting || !selectedOption}
+                  className="btn btn-primary"
+                  onClick={() => navigate(`/polls/${id}/results`)}
                 >
-                  {submitting ? (
-                    <>
-                      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.8s linear infinite' }}>
-                        <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
-                        <path d="M12 2a10 10 0 0 1 10 10" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
-                      </svg>
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <MdHowToVote size={20} /> Cast Vote
-                    </>
-                  )}
+                  <MdBarChart size={18} /> View Live Results
                 </button>
-              </form>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => navigate('/admin')}
+                >
+                  🛡️ Admin Control Center
+                </button>
+              </div>
             </div>
           </div>
-        )}
+        ) : (
+          <>
+            {/* Already voted */}
+            {voteStatus.hasVoted && (
+              <div style={{
+                background: 'var(--success-bg)',
+                border: '1px solid #86efac',
+                borderRadius: 'var(--border-radius)',
+                padding: '16px 20px',
+                marginBottom: 20,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+              }}>
+                <MdCheckCircle size={22} color="var(--success)" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div>
+                  <p style={{ fontWeight: 700, color: 'var(--success)', fontSize: '0.9rem', marginBottom: 2 }}>
+                    You already voted in this poll!
+                  </p>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                    Your vote: <strong>{voteStatus.vote?.optionText}</strong>
+                  </p>
+                </div>
+              </div>
+            )}
 
-        {/* View results CTA */}
-        {(voteStatus.hasVoted || isExpired) && (
-          <button
-            className="btn btn-primary btn-full btn-lg"
-            onClick={() => navigate(`/polls/${id}/results`)}
-            style={{ marginTop: 8 }}
-          >
-            <MdBarChart size={20} /> View Live Results
-          </button>
+            {/* Expired */}
+            {isExpired && !voteStatus.hasVoted && (
+              <div style={{
+                background: 'var(--closed-bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--border-radius)',
+                padding: '16px 20px',
+                marginBottom: 20,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}>
+                <MdLock size={22} color="var(--closed-color)" />
+                <p style={{ fontWeight: 600, color: 'var(--closed-color)', fontSize: '0.9rem' }}>
+                  This poll has expired. Voting is no longer allowed.
+                </p>
+              </div>
+            )}
+
+            {/* Voting Form */}
+            {!voteStatus.hasVoted && !isExpired && (
+              <div className="card">
+                <div className="card-header">
+                  <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Cast Your Vote
+                  </h2>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                    Select one option and click Submit Vote. You can only vote once.
+                  </p>
+                </div>
+                <div className="card-body">
+                  <form onSubmit={handleVote}>
+                    {poll.options?.map((opt) => (
+                      <label
+                        key={opt._id}
+                        className={`vote-option ${selectedOption === opt._id ? 'selected' : ''}`}
+                        htmlFor={`opt-${opt._id}`}
+                      >
+                        <input
+                          id={`opt-${opt._id}`}
+                          type="radio"
+                          name="voteOption"
+                          value={opt._id}
+                          checked={selectedOption === opt._id}
+                          onChange={() => setSelectedOption(opt._id)}
+                        />
+                        <span className="vote-option-text">{opt.text}</span>
+                      </label>
+                    ))}
+
+                    <button
+                      id="cast-vote-btn"
+                      type="submit"
+                      className="btn btn-primary btn-full btn-lg"
+                      style={{ marginTop: 16 }}
+                      disabled={submitting || !selectedOption}
+                    >
+                      {submitting ? (
+                        <>
+                          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.8s linear infinite' }}>
+                            <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
+                            <path d="M12 2a10 10 0 0 1 10 10" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+                          </svg>
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <MdHowToVote size={20} /> Cast Vote
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* View results CTA */}
+            {(voteStatus.hasVoted || isExpired) && (
+              <button
+                className="btn btn-primary btn-full btn-lg"
+                onClick={() => navigate(`/polls/${id}/results`)}
+                style={{ marginTop: 8 }}
+              >
+                <MdBarChart size={20} /> View Live Results
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

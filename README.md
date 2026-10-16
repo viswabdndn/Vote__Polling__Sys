@@ -1,299 +1,299 @@
 # 🗳️ PollLive — Online Polling and Live Voting System
 
-A full-stack MERN application with **real-time voting** powered by Socket.IO, **JWT authentication**, and **MongoDB-enforced duplicate vote prevention**.
+A production-grade, full-stack **Online Polling and Real-Time Voting System** built on Node.js/Express, MongoDB/Mongoose, and React 18/Vite. Powered by **Socket.IO** for live real-time ballot updates, **JWT** authentication, **Role-Based Access Control (Admin, Creator, Participant)**, **DB-level race-condition defense**, and an **Admin Approval Workflow Gate**.
 
 ---
 
-## 📌 Project Objective
-
-Solve the problems of:
-- Manual vote counting
-- Delayed result generation
-- Duplicate voting
-- Difficulty storing poll history
-
-The system automatically calculates results, broadcasts live updates, and permanently stores all poll data.
+## 📌 Table of Contents
+1. [Architecture & System Design](#-architecture--system-design)
+2. [Technology Stack](#-technology-stack)
+3. [Key Highlights & Capabilities](#-key-highlights--capabilities)
+4. [Security Architecture](#-security-architecture)
+5. [Project Structure](#-project-structure)
+6. [Quickstart & Setup](#-quickstart--setup)
+7. [Running Tests](#-running-tests)
+8. [Comprehensive API Reference](#-comprehensive-api-reference)
+9. [Seed & Demo Accounts](#-seed--demo-accounts)
+10. [License](#-license)
 
 ---
 
-## ✨ Features
+## 🏗️ Architecture & System Design
 
-- **User Authentication** — Register, Login, JWT sessions, bcrypt password hashing
-- **Create Polls** — Dynamic options, expiry date/time, description
-- **Cast Votes** — One vote per user per poll (enforced at DB level via compound unique index)
-- **Live Results** — Socket.IO broadcasts vote updates to all viewers instantly
-- **Poll Management** — View active polls, close polls manually
-- **Poll History** — Browse archived/expired polls with final results
-- **Charts** — Recharts bar chart visualization
-- **Security** — JWT middleware, protected routes, no userId from frontend
+```
+                     ┌───────────────────────────────────────────┐
+                     │           React 18 + Vite Client          │
+                     │  (Tailored CSS, Glassmorphism, Recharts)  │
+                     └─────────────────────┬─────────────────────┘
+                                           │
+                        REST HTTP (Axios)  │  WebSockets (Socket.IO)
+                        JWT in Auth Header │  Authenticated Handshake
+                                           ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Express 4 Server API                               │
+│                                                                                 │
+│  [Security Layer]                                                               │
+│    ├── Helmet (Security Headers)                                                │
+│    ├── Express Rate Limit (General, Auth, Voting Tiers)                         │
+│    ├── Express Mongo Sanitize (NoSQL Injection Defense)                         │
+│    └── CORS Whitelist                                                           │
+│                                                                                 │
+│  [Middlewares]                                                                  │
+│    ├── authMiddleware (JWT verify, active status, role check, creator perm)     │
+│    ├── validatorMiddleware (express-validator schema rules)                     │
+│    └── errorMiddleware (sanitized responses, duplicate key mappings)            │
+│                                                                                 │
+│  [Service Layer]                                                                │
+│    ├── authService.js                                                           │
+│    ├── pollService.js                                                           │
+│    ├── voteService.js (Aggregation source of truth, drift-free healing)         │
+│    ├── adminService.js (User, creator, permission & poll management)            │
+│    └── pollExpiryService.js (Autonomous 60s background lifecycle worker)        │
+└────────────────────────────────────────┬────────────────────────────────────────┘
+                                         │
+                                         ▼
+                     ┌───────────────────────────────────────────┐
+                     │               MongoDB 8.0                 │
+                     │  - Compound Unique Index: {user, poll}    │
+                     │  - Compound Queries: {status, expiry}     │
+                     │  - Atomic $inc, $sum Aggregations         │
+                     └───────────────────────────────────────────┘
+```
 
 ---
 
 ## 🛠️ Technology Stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 18, Vite, React Router v6 |
-| Styling | Vanilla CSS (custom design system) |
-| Charts | Recharts |
-| HTTP Client | Axios |
-| Real-Time | Socket.IO Client |
-| Backend | Node.js, Express.js |
-| Database | MongoDB, Mongoose |
-| Auth | JWT (jsonwebtoken), bcryptjs |
-| Real-Time Server | Socket.IO |
+| Domain | Technology | Description |
+|---|---|---|
+| **Server** | Node.js, Express 4 | High-throughput async REST API backend |
+| **Database** | MongoDB 8, Mongoose 8 | Document storage with compound indexing & aggregation |
+| **Authentication** | JWT, bcryptjs | Stateless bearer authentication with bcrypt salt cost ≥ 12 |
+| **Real-Time** | Socket.IO | Handshake-authenticated WebSocket rooms (`poll_:id`) |
+| **Testing** | Jest, Supertest | Automated unit, RBAC, ownership, and integrity test suites |
+| **Frontend** | React 18, Vite 5 | SPA with code-splitting and responsive layout |
+| **Styling** | Vanilla CSS | Custom tokenized design system (Light/Dark mode, glassmorphism) |
+| **Charts** | Recharts | Dynamic Bar and Donut chart visualizations |
+| **Export** | jsPDF, xlsx | PDF, Excel, and Word report generators |
 
 ---
 
-## 📁 Folder Structure
+## ✨ Key Highlights & Capabilities
+
+1. **Role-Based Access Control (RBAC)**:
+   - **Administrator**: Full administrative dashboard, user management (promote, demote, activate, deactivate), creator permission overrides, and poll approval/rejection moderation queue.
+   - **Creator**: Poll creation with custom options, start/end date windows, creator dashboard, participant vote viewer, and report exports.
+   - **Participant**: Vote in active polls (strictly 1 vote per poll), view live tally results, browse archived poll history, customize settings/themes.
+2. **Admin Poll Approval Workflow**:
+   - Creator-submitted polls enter a `pending` state and are hidden from general participants.
+   - Admins review, approve (with optional option refinements), or reject with direct creator feedback.
+3. **Atomic Double-Voting Defense**:
+   - Application pre-check combined with a database-level **Compound Unique Index** `{ userId: 1, pollId: 1 }` prevents concurrent double-voting race conditions (HTTP 409).
+4. **Drift-Free Result Aggregation**:
+   - Poll tallies and percentages are computed dynamically from `Vote.aggregate` (the source of truth), with automatic self-healing for cached counters.
+5. **Automated Expiry Service**:
+   - Autonomous background worker transitions active polls to `closed` as soon as their `expiryTime` expires.
+6. **Code-Split Frontend**:
+   - Optimized with `React.lazy` and Vite rollup manual chunks, reducing initial page load bundle by over 80%.
+
+---
+
+## 🔒 Security Architecture
+
+- **Credential Hashing**: Passwords require min 8 characters with uppercase, lowercase, and digit; hashed using bcrypt with salt rounds ≥ 12.
+- **Timing Attack / Enumeration Defense**: Verify passwords before account status checks to prevent user enumeration.
+- **Rate Limiting**:
+  - General API: 300 req / 15 min per IP.
+  - Authentication (Login/Register): 20 req / 15 min per IP.
+  - Voting Submission: 30 req / 1 min per IP.
+- **NoSQL Injection Prevention**: `express-mongo-sanitize` strips `$` and `.` operators from all incoming parameters.
+- **Strict CORS & Headers**: Whitelisted client origins and HTTP security headers enforced by `helmet`.
+- **Payload Limits**: Max 50KB request body limits to prevent denial-of-service via oversized JSON payloads.
+
+---
+
+## 📁 Project Structure
 
 ```
-SMT project/
-├── server/
-│   ├── config/
-│   │   └── db.js
-│   ├── controllers/
-│   │   ├── authController.js
-│   │   ├── pollController.js
-│   │   └── voteController.js
-│   ├── middleware/
-│   │   ├── authMiddleware.js
-│   │   └── errorMiddleware.js
-│   ├── models/
-│   │   ├── User.js
-│   │   ├── Poll.js
-│   │   ├── Option.js
-│   │   └── Vote.js
-│   ├── routes/
-│   │   ├── authRoutes.js
-│   │   └── pollRoutes.js
-│   ├── socket/
-│   │   └── socket.js
-│   ├── seed.js
-│   ├── server.js
-│   ├── .env
+c:\SMT project/
+├── client/
+│   ├── src/
+│   │   ├── api/             # Unified API service exports
+│   │   ├── assets/          # Static branding assets
+│   │   ├── components/      # Common, layout, polls, and charts
+│   │   │   ├── common/      # SkeletonLoader, LoadingSpinner, AccessDenied, ProtectedRoute
+│   │   │   ├── layout/      # Navbar (with mobile toggle), Sidebar (with drawer)
+│   │   │   ├── polls/       # PollCard
+│   │   │   └── charts/      # ResultChart (Bar & Donut toggles)
+│   │   ├── context/         # AuthContext, SettingsContext
+│   │   ├── pages/           # Domain-partitioned pages
+│   │   │   ├── auth/        # Login, Register
+│   │   │   ├── admin/       # AdminDashboard
+│   │   │   ├── creator/     # CreatePoll, MyPolls
+│   │   │   └── user/        # Dashboard, AvailablePolls, VotePoll, PollResults, History, Profile, Settings
+│   │   ├── services/        # Axios interceptors & HTTP client
+│   │   ├── utils/           # exportUtils (PDF, Excel, Word export)
+│   │   ├── App.jsx          # Route declarations & Suspense code-splitting
+│   │   └── index.css        # Tokenized design system
+│   ├── vite.config.js       # Vite configuration & Rollup manual chunks
 │   └── package.json
 │
-└── client/
-    ├── src/
-    │   ├── components/
-    │   │   ├── Navbar.jsx
-    │   │   ├── Sidebar.jsx
-    │   │   ├── PollCard.jsx
-    │   │   ├── ResultChart.jsx
-    │   │   ├── ProtectedRoute.jsx
-    │   │   └── LoadingSpinner.jsx
-    │   ├── context/
-    │   │   └── AuthContext.jsx
-    │   ├── pages/
-    │   │   ├── Login.jsx
-    │   │   ├── Register.jsx
-    │   │   ├── Dashboard.jsx
-    │   │   ├── CreatePoll.jsx
-    │   │   ├── AvailablePolls.jsx
-    │   │   ├── VotePoll.jsx
-    │   │   ├── PollResults.jsx
-    │   │   ├── MyPolls.jsx
-    │   │   ├── PollHistory.jsx
-    │   │   └── Profile.jsx
-    │   ├── services/
-    │   │   └── api.js
-    │   ├── App.jsx
-    │   ├── main.jsx
-    │   └── index.css
-    ├── index.html
-    └── vite.config.js
+├── server/
+│   ├── src/
+│   │   ├── config/          # db.js, env.js (fail-fast validator)
+│   │   ├── models/          # User.js, Poll.js, Option.js, Vote.js
+│   │   ├── services/        # authService, pollService, voteService, adminService, pollExpiryService
+│   │   ├── controllers/     # authController, pollController, voteController, adminController
+│   │   ├── middleware/      # authMiddleware, errorMiddleware, rateLimiter, validatorMiddleware
+│   │   ├── validators/      # express-validator schemas
+│   │   ├── routes/          # authRoutes, pollRoutes, adminRoutes
+│   │   ├── sockets/         # socket.js (handshake auth & rooms)
+│   │   ├── app.js           # Express app instance (ideal for supertest)
+│   │   └── server.js        # Server entry point & listener
+│   ├── tests/               # Automated test suites (Jest + Supertest)
+│   │   ├── auth.test.js
+│   │   ├── rbac.test.js
+│   │   ├── pollOwnership.test.js
+│   │   ├── votingIntegrity.test.js
+│   │   └── validation.test.js
+│   ├── scripts/             # setupAdmin.js, testApprovalWorkflow.js, testRBAC.js
+│   ├── seed.js              # Database seeder with 8 standard accounts
+│   ├── .env.example         # Sanitized configuration template
+│   └── package.json
+│
+└── README.md
 ```
 
 ---
 
-## ⚙️ Installation
+## 🚀 Quickstart & Setup
 
 ### Prerequisites
-- **Node.js** v18 or later
-- **MongoDB** running locally on port 27017 (or MongoDB Atlas)
-- **npm** v9 or later
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [MongoDB](https://www.mongodb.com/) (v6 or higher running locally on `127.0.0.1:27017` or MongoDB Atlas URI)
 
-### 1. Clone / Open the project
-
-```bash
-cd "c:\SMT project"
-```
-
-### 2. Install Backend Dependencies
-
+### 1. Clone & Configure Server
 ```bash
 cd server
-npm install
+cp .env.example .env
 ```
-
-### 3. Install Frontend Dependencies
-
-```bash
-cd ../client
-npm install
-```
-
----
-
-## 🔑 Environment Variables
-
-The `server/.env` file is pre-configured. Edit it if needed:
-
+Edit `server/.env` to ensure appropriate values:
 ```env
 PORT=5000
+NODE_ENV=development
 MONGO_URI=mongodb://127.0.0.1:27017/online_polling
-JWT_SECRET=online_polling_jwt_super_secret_key_2024
-CLIENT_URL=http://localhost:5173
+JWT_SECRET=your_super_secret_jwt_key_min_16_characters!
 JWT_EXPIRE=7d
+CLIENT_URL=http://localhost:5173
 ```
 
-> For **MongoDB Atlas**, replace `MONGO_URI` with your Atlas connection string.
-
----
-
-## 🚀 Running the Project
-
-### Start MongoDB
-Make sure MongoDB is running:
+### 2. Seed Database
 ```bash
-# Windows — start MongoDB service, or run:
-mongod
-```
-
-### Start Backend
-```bash
-cd server
-npm run dev
-# Server starts at http://localhost:5000
-```
-
-### Start Frontend (new terminal)
-```bash
-cd client
-npm run dev
-# Frontend starts at http://localhost:5173
-```
-
-### Seed Demo Data (optional)
-```bash
-cd server
 npm run seed
 ```
+*(Creates 8 demo accounts and pre-populated polls ready for testing).*
 
-This creates:
-- `alice@example.com` / `password123`
-- `bob@example.com` / `password123`
-- 3 active polls + 1 archived poll
-
----
-
-## 🧪 Testing the Application
-
-### Test 1 — Registration
-1. Open `http://localhost:5173/register`
-2. Fill in Name, Email, Password, Confirm Password
-3. Click **Create Account**
-4. Should redirect to Dashboard
-
-### Test 2 — Login
-1. Open `http://localhost:5173/login`
-2. Enter credentials
-3. Click **Sign In**
-
-### Test 3 — Create a Poll
-1. Click **Create Poll** in sidebar
-2. Enter title: "Which programming language do you prefer?"
-3. Add options: Java, Python, JavaScript, C++
-4. Set expiry date/time (tomorrow)
-5. Click **Create Poll**
-
-### Test 4 — Cast a Vote
-1. Go to **Available Polls**
-2. Click **Vote** on your poll
-3. Select an option
-4. Click **Cast Vote**
-
-### Test 5 — Duplicate Vote Prevention
-1. Try to vote in the same poll again
-2. Expected: "You have already voted in this poll."
-
-### Test 6 — Real-Time Results (Socket.IO)
-1. Open the poll results page in **two browser tabs**
-2. In a second account (incognito), vote for a different option
-3. Watch the first tab update automatically without refresh
-
-### Test 7 — Close a Poll
-1. Go to **My Polls**
-2. Click **Close Poll** on an active poll
-3. Verify it moves to **Poll History**
-4. Verify voting is disabled on the poll
-
----
-
-## 🔌 API Reference
-
-### Auth
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/auth/register` | Register a new user |
-| POST | `/api/auth/login` | Login and get JWT token |
-| GET | `/api/auth/me` | Get current user |
-
-### Polls
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/polls` | Create a poll |
-| GET | `/api/polls` | Get all polls |
-| GET | `/api/polls/active` | Get active polls |
-| GET | `/api/polls/archive` | Get archived/closed polls |
-| GET | `/api/polls/my` | Get user's own polls |
-| GET | `/api/polls/:id` | Get single poll |
-| PUT | `/api/polls/:id/close` | Close a poll |
-
-### Votes
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/polls/:pollId/vote` | Cast a vote |
-| GET | `/api/polls/:pollId/results` | Get poll results |
-| GET | `/api/polls/:pollId/vote-status` | Check if user voted |
-
----
-
-## 🔒 Security Implementation
-
-- **Passwords**: Hashed with bcrypt (12 salt rounds)
-- **JWT**: Tokens expire in 7 days, verified on every protected request
-- **Duplicate Votes**: Compound unique index `{userId, pollId}` on Vote collection
-- **User ID**: Always extracted from JWT token, never trusted from request body
-- **Poll Expiry**: Verified server-side before accepting every vote
-- **Protected Routes**: All poll and vote endpoints require valid JWT
-
----
-
-## 📡 Real-Time Architecture
-
+### 3. Run Development Servers
+**Terminal 1 (Server):**
+```bash
+cd server
+npm run dev
+# Running on http://localhost:5000
 ```
-User votes
-    ↓
-React Frontend (Axios POST)
-    ↓
-Express REST API (/api/polls/:id/vote)
-    ↓
-MongoDB (Vote saved + Option.voteCount incremented atomically)
-    ↓
-Socket.IO emits 'voteUpdated' to poll room
-    ↓
-All clients in that poll room receive the update
-    ↓
-React updates results chart and progress bars instantly
+
+**Terminal 2 (Client):**
+```bash
+cd client
+npm install
+npm run dev
+# Running on http://localhost:5173
 ```
 
 ---
 
-## 👥 Demo Accounts (after seeding)
+## 🧪 Running Tests
 
-| Name | Email | Password |
-|------|-------|----------|
-| Alice Johnson | alice@example.com | password123 |
-| Bob Smith | bob@example.com | password123 |
+The test suite validates authentication, RBAC, poll ownership isolation, double-voting prevention, and input validation without side effects on production data.
+
+```bash
+cd server
+
+# Run complete Jest automated test suite (37 tests across 5 suites)
+npm test
+
+# Run approval workflow verification
+node scripts/testApprovalWorkflow.js
+
+# Run RBAC security verification
+node scripts/testRBAC.js
+
+# Run Phase 2 integrity test suite
+node tests/phase2_verify.js
+```
+
+---
+
+## 📡 Comprehensive API Reference
+
+### Authentication (`/api/auth`)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | Public | Register participant or creator (rejects `role: admin`) |
+| `POST` | `/api/auth/login` | Public | Login with 7-digit ID or Email & password |
+| `GET` | `/api/auth/me` | Bearer Token | Fetch current authenticated user session |
+
+### Polls & Voting (`/api/polls`)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `POST` | `/api/polls` | Admin / Creator | Create poll (starts as `pending` for creators) |
+| `GET` | `/api/polls` | Authenticated | List all viewable polls (lean with pagination) |
+| `GET` | `/api/polls/active` | Authenticated | List only active, approved, non-expired polls |
+| `GET` | `/api/polls/archive` | Authenticated | List closed or expired polls |
+| `GET` | `/api/polls/my` | Admin / Creator | List polls created by the logged-in user |
+| `GET` | `/api/polls/:id` | Authenticated | Get single poll details with options |
+| `PUT` | `/api/polls/:id` | Owner / Admin | Update poll title, description, or expiry |
+| `PUT` | `/api/polls/:id/close` | Owner / Admin | Manually close an active poll |
+| `PUT` | `/api/polls/:id/status`| Owner / Admin | Toggle poll status between active and closed |
+| `DELETE`| `/api/polls/:id` | Owner / Admin | Cascading delete of poll, options, and votes |
+| `POST` | `/api/polls/:pollId/vote` | Authenticated | Cast ballot (enforces 1 vote per user) |
+| `GET` | `/api/polls/:pollId/results` | Authenticated | Get drift-free live results & winner |
+| `GET` | `/api/polls/:pollId/vote-status` | Authenticated | Check if current user has voted |
+| `GET` | `/api/polls/:pollId/participants` | Owner / Admin | View full participant audit records |
+
+### Admin Moderation (`/api/admin`)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `GET` | `/api/admin/stats` | Admin Only | System-wide counts and analytics |
+| `GET` | `/api/admin/polls/pending` | Admin Only | Review pending poll approval queue |
+| `PUT` | `/api/admin/polls/:id/approve` | Admin Only | Approve and publish a creator poll |
+| `PUT` | `/api/admin/polls/:id/reject` | Admin Only | Reject poll with moderation feedback |
+| `GET` | `/api/admin/creators` | Admin Only | List all creators with poll statistics |
+| `PUT` | `/api/admin/creators/:id/status` | Admin Only | Activate or deactivate creator account |
+| `PUT` | `/api/admin/creators/:id/permissions` | Admin Only | Update granular creator permissions |
+| `DELETE`| `/api/admin/creators/:id` | Admin Only | Remove creator and cleanup polls |
+| `GET` | `/api/admin/users` | Admin Only | Search & paginate all platform accounts |
+| `PUT` | `/api/admin/users/:id/role` | Admin Only | Promote or demote user role |
+| `PUT` | `/api/admin/users/:id/status` | Admin Only | Deactivate or restore user account |
+| `DELETE`| `/api/admin/users/:id` | Admin Only | Delete user account |
+
+---
+
+## 👥 Seed & Demo Accounts
+
+When seeded via `npm run seed`, the following accounts are initialized with password **`User@12345`** (Admin: **`Admin@12345`**):
+
+| Role | Name | Identifier / Voter ID | Email |
+|---|---|---|---|
+| **Admin** | System Administrator | — | `admin@poll.local` |
+| **Creator** | Dr. Alice Walker | — | `creator1@poll.local` |
+| **Creator** | Prof. Robert Davis | — | `creator2@poll.local` |
+| **Participant** | Priya Sharma | `24104110` | `priya@student.local` |
+| **Participant** | Rahul Verma | `24104111` | `rahul@student.local` |
+| **Participant** | Ananya Sen | `24104112` | `ananya@student.local` |
+| **Participant** | Karthik Raja | `24104113` | `karthik@student.local` |
+| **Participant** | Sneha Patel | `24104114` | `sneha@student.local` |
+
+---
+
+## 📄 License
+MIT License. Developed for secure, transparent online voting and live classroom/organizational polling.

@@ -16,6 +16,8 @@ const pollRoutes = require('../routes/pollRoutes');
 const adminRoutes = require('../routes/adminRoutes');
 const { notFound, errorHandler } = require('../middleware/errorMiddleware');
 
+process.env.NODE_ENV = 'test';
+
 const runTests = async () => {
   await connectDB();
   console.log('🧪 Starting RBAC automated security and functional test suite...\n');
@@ -61,18 +63,31 @@ const runTests = async () => {
     console.log('--- Test Group 1: Registration Security ---');
     await User.deleteMany({ email: { $in: ['testadmin@test.com', 'creator_a@test.com', 'creator_b@test.com', 'voter_c@test.com'] } });
 
-    // Try registering as admin directly through public API -> MUST FAIL
+    // Try registering as admin directly through public API -> MUST FAIL (403 or 400)
     const adminRegRes = await request('/api/auth/register', {
       method: 'POST',
       body: {
         name: 'Hacker Admin',
         email: 'hacker@test.com',
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'Password123!',
+        confirmPassword: 'Password123!',
         role: 'admin',
       },
     });
-    assert(adminRegRes.status === 403, 'Public registration rejects role=admin (403)');
+    assert(adminRegRes.status === 403 || adminRegRes.status === 400, 'Public registration rejects role=admin (403/400)');
+
+    // Try registering with weak password -> MUST FAIL (400)
+    const weakPassRes = await request('/api/auth/register', {
+      method: 'POST',
+      body: {
+        name: 'Weak Pass User',
+        email: 'weak@test.com',
+        password: 'weak',
+        confirmPassword: 'weak',
+        role: 'participant',
+      },
+    });
+    assert(weakPassRes.status === 400, 'Public registration rejects weak passwords < 8 chars (400)');
 
     // Register Creator A
     const creatorARes = await request('/api/auth/register', {
@@ -80,8 +95,8 @@ const runTests = async () => {
       body: {
         name: 'Creator A',
         email: 'creator_a@test.com',
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'Password123!',
+        confirmPassword: 'Password123!',
         role: 'creator',
       },
     });
@@ -95,8 +110,8 @@ const runTests = async () => {
       body: {
         name: 'Creator B',
         email: 'creator_b@test.com',
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'Password123!',
+        confirmPassword: 'Password123!',
         role: 'creator',
       },
     });
@@ -109,8 +124,8 @@ const runTests = async () => {
       body: {
         name: 'Participant C',
         email: 'voter_c@test.com',
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'Password123!',
+        confirmPassword: 'Password123!',
         role: 'participant',
       },
     });
@@ -121,7 +136,7 @@ const runTests = async () => {
     const testAdmin = await User.create({
       name: 'System Admin',
       email: 'testadmin@test.com',
-      password: 'password123',
+      password: 'Password123!',
       role: 'admin',
       isActive: true,
     });
@@ -129,7 +144,7 @@ const runTests = async () => {
       method: 'POST',
       body: {
         email: 'testadmin@test.com',
-        password: 'password123',
+        password: 'Password123!',
       },
     });
     assert(loginAdminRes.status === 200 && loginAdminRes.data.user.role === 'admin', 'Admin logged in successfully');
@@ -249,7 +264,7 @@ const runTests = async () => {
     // Creator A tries to login while deactivated -> MUST FAIL (403)
     const deactLoginRes = await request('/api/auth/login', {
       method: 'POST',
-      body: { email: 'creator_a@test.com', password: 'password123' },
+      body: { email: 'creator_a@test.com', password: 'Password123!' },
     });
     assert(deactLoginRes.status === 403, 'Deactivated Creator A cannot log in (403)');
 

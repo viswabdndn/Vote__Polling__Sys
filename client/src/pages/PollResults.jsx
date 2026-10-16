@@ -65,7 +65,9 @@ const PollResults = () => {
     fetchResults();
 
     // Socket.IO — join poll room for live updates
+    const token = localStorage.getItem('token');
     const socket = io(SOCKET_URL, {
+      auth: { token },
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
     });

@@ -1,0 +1,15 @@
+# Server Environment files
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Coverage & test output
+coverage/
+.nyc_output/

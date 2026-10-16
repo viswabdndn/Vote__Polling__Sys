@@ -64,6 +64,7 @@ export const pollAPI = {
 export const adminAPI = {
   getStats: () => api.get('/admin/stats'),
   getCreators: () => api.get('/admin/creators'),
+  createCreator: (data) => api.post('/admin/creators', data),
   updateCreatorStatus: (id, isActive) => api.put(`/admin/creators/${id}/status`, { isActive }),
   updateCreatorPermissions: (id, permissions) => api.put(`/admin/creators/${id}/permissions`, permissions),
   deleteCreator: (id) => api.delete(`/admin/creators/${id}`),

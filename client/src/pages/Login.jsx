@@ -17,7 +17,7 @@ const Login = () => {
   const validate = () => {
     const errs = {};
     if (!form.identifier.trim()) {
-      errs.identifier = 'Participant ID or Email is required.';
+      errs.identifier = 'Email Address or User ID is required.';
     }
     if (!form.password) {
       errs.password = 'Password is required.';
@@ -33,14 +33,17 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
 
     setLoading(true);
     try {
       await login(form);
       navigate(from, { replace: true });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Login failed. Check your ID/Email and password.');
+      toast.error(err.response?.data?.message || 'Login failed. Check your Email Address or User ID and password.');
     } finally {
       setLoading(false);
     }
@@ -51,55 +54,112 @@ const Login = () => {
       <div className="auth-card">
         <div className="auth-logo">
           <div className="auth-logo-icon">
-            <MdHowToVote size={30} />
+            <MdHowToVote size={30} aria-hidden="true" />
           </div>
           <h1 className="auth-title">Welcome Back</h1>
-          <p className="auth-subtitle">Sign in with your 7-digit Participant ID or Email</p>
+          <p className="auth-subtitle">Sign in with your Email Address or User ID</p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="form-group">
-            <label className="form-label">Participant ID (7-8 Digits) or Email</label>
+            <label htmlFor="login-identifier" className="form-label">
+              Email Address or User ID
+            </label>
             <div style={{ position: 'relative' }}>
-              <MdBadge size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <MdBadge
+                size={18}
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                  pointerEvents: 'none',
+                }}
+              />
               <input
                 id="login-identifier"
                 name="identifier"
                 type="text"
+                autoComplete="username"
                 className={`form-input ${errors.identifier ? 'error' : ''}`}
                 style={{ paddingLeft: 38 }}
                 placeholder="e.g. 24104110 or alice@example.com"
                 value={form.identifier}
                 onChange={handleChange}
+                aria-invalid={Boolean(errors.identifier)}
+                aria-describedby={errors.identifier ? 'login-identifier-error' : undefined}
                 autoFocus
               />
             </div>
-            {errors.identifier && <p className="form-error">{errors.identifier}</p>}
+            {errors.identifier && (
+              <p id="login-identifier-error" className="form-error" role="alert">
+                {errors.identifier}
+              </p>
+            )}
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label htmlFor="login-password" className="form-label">
+              Password
+            </label>
             <div style={{ position: 'relative' }}>
-              <MdLock size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <MdLock
+                size={18}
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                  pointerEvents: 'none',
+                }}
+              />
               <input
                 id="login-password"
                 name="password"
                 type={showPwd ? 'text' : 'password'}
+                autoComplete="current-password"
                 className={`form-input ${errors.password ? 'error' : ''}`}
-                style={{ paddingLeft: 38, paddingRight: 42 }}
+                style={{ paddingLeft: 38, paddingRight: 44 }}
                 placeholder="Your unique password"
                 value={form.password}
                 onChange={handleChange}
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={errors.password ? 'login-password-error' : undefined}
               />
               <button
                 type="button"
                 onClick={() => setShowPwd(!showPwd)}
-                style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                aria-label={showPwd ? 'Hide password' : 'Show password'}
+                title={showPwd ? 'Hide password' : 'Show password'}
+                style={{
+                  position: 'absolute',
+                  right: 4,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  width: 38,
+                  height: 38,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 4,
+                }}
               >
-                {showPwd ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                {showPwd ? <MdVisibilityOff size={18} aria-hidden="true" /> : <MdVisibility size={18} aria-hidden="true" />}
               </button>
             </div>
-            {errors.password && <p className="form-error">{errors.password}</p>}
+            {errors.password && (
+              <p id="login-password-error" className="form-error" role="alert">
+                {errors.password}
+              </p>
+            )}
           </div>
 
           <button
@@ -111,47 +171,30 @@ const Login = () => {
           >
             {loading ? (
               <>
-                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.8s linear infinite' }}>
+                <svg
+                  width={18}
+                  height={18}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  style={{ animation: 'spin 0.8s linear infinite' }}
+                >
                   <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
                   <path d="M12 2a10 10 0 0 1 10 10" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
                 </svg>
                 Signing In...
               </>
-            ) : 'Sign In'}
+            ) : (
+              'Sign In'
+            )}
           </button>
         </form>
 
-        {/* Demo credentials hint */}
-        <div style={{ marginTop: 20, padding: '14px 16px', background: 'var(--info-bg)', borderRadius: 'var(--border-radius-sm)', border: '1px solid #bfdbfe' }}>
-          <p style={{ fontSize: '0.8rem', color: 'var(--info)', fontWeight: 700, marginBottom: 8 }}>💡 Demo Accounts (Click to auto-fill):</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <button
-              type="button"
-              onClick={() => setForm({ identifier: 'admin@polllive.local', password: 'AdminPass123!' })}
-              style={{ textAlign: 'left', background: 'var(--surface)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 6, padding: '6px 10px', fontSize: '0.78rem', color: 'var(--text-primary)', cursor: 'pointer' }}
-            >
-              🛡️ <strong>Admin (System Admin):</strong> <code>admin@polllive.local</code> / <code>AdminPass123!</code>
-            </button>
-            <button
-              type="button"
-              onClick={() => setForm({ identifier: 'john@example.com', password: 'password123' })}
-              style={{ textAlign: 'left', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: '0.78rem', color: 'var(--text-primary)', cursor: 'pointer' }}
-            >
-              👑 <strong>Creator (John Smith):</strong> <code>john@example.com</code> / <code>password123</code>
-            </button>
-            <button
-              type="button"
-              onClick={() => setForm({ identifier: '24104111', password: 'password123' })}
-              style={{ textAlign: 'left', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: '0.78rem', color: 'var(--text-primary)', cursor: 'pointer' }}
-            >
-              🎓 <strong>Participant (Bob Smith):</strong> ID: <code>24104111</code> / <code>password123</code>
-            </button>
-          </div>
-        </div>
-
-        <p style={{ textAlign: 'center', marginTop: 20, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+        <p style={{ textAlign: 'center', marginTop: 24, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
           Don't have an account?{' '}
-          <Link to="/register" className="auth-link">Register with your 7-digit ID</Link>
+          <Link to="/register" className="auth-link">
+            Register as a participant
+          </Link>
         </p>
       </div>
     </div>

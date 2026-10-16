@@ -1,0 +1,12 @@
+export { default as Login } from './auth/Login';
+export { default as Register } from './auth/Register';
+export { default as AdminDashboard } from './admin/AdminDashboard';
+export { default as CreatePoll } from './creator/CreatePoll';
+export { default as MyPolls } from './creator/MyPolls';
+export { default as Dashboard } from './user/Dashboard';
+export { default as AvailablePolls } from './user/AvailablePolls';
+export { default as VotePoll } from './user/VotePoll';
+export { default as PollResults } from './user/PollResults';
+export { default as PollHistory } from './user/PollHistory';
+export { default as Profile } from './user/Profile';
+export { default as Settings } from './user/Settings';

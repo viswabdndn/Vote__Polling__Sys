@@ -25,6 +25,18 @@ const parseArgs = () => {
 const setupAdmin = async () => {
   const args = parseArgs();
 
+  // In production, reject default credentials
+  if (process.env.NODE_ENV === 'production') {
+    if (!args.password && !process.env.ADMIN_PASSWORD) {
+      console.error('❌ Error: In production, ADMIN_PASSWORD environment variable or --password argument is mandatory. Refusing to use fallback default passwords.');
+      process.exit(1);
+    }
+    if (!args.email && !process.env.ADMIN_EMAIL) {
+      console.error('❌ Error: In production, ADMIN_EMAIL environment variable or --email argument is mandatory. Refusing to use fallback default email.');
+      process.exit(1);
+    }
+  }
+
   const email = (args.email || process.env.ADMIN_EMAIL || 'admin@polllive.local').trim().toLowerCase();
   const password = args.password || process.env.ADMIN_PASSWORD || 'AdminPass123!';
   const name = (args.name || process.env.ADMIN_NAME || 'System Administrator').trim();
@@ -36,8 +48,8 @@ const setupAdmin = async () => {
     process.exit(1);
   }
 
-  if (password.length < 6) {
-    console.error('❌ Error: Admin password must be at least 6 characters long.');
+  if (password.length < 8) {
+    console.error('❌ Error: Admin password must be at least 8 characters long.');
     process.exit(1);
   }
 
